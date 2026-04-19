@@ -92,8 +92,6 @@ volatile float motor_target_voltage = 0.0f;
 
 LowPassFilter angle_filter(0.02);
 
-#define DAMPING 0.05f
-
 //******************************** USB JOYSTICK INPUT REPORT //********************************
 
 typedef struct __attribute__((packed)) {
@@ -427,6 +425,9 @@ static void foc_read_angle_task(void* arg) {
     }
 }
 
+#define DAMPING_GAIN (0.01f)
+#define DAMPING_EXPONENT (1.2f)
+
 static void foc_task(void* arg) {
     SimpleFOCDebug::enable(); /*!< Enable debug */
     Serial.begin(115200);
@@ -465,7 +466,8 @@ static void foc_task(void* arg) {
         motor.loopFOC();
 
         float vel = motor.shaft_velocity;
-        float damping = DAMPING * vel;
+        // float damping = DAMPING_GAIN * vel;
+        float damping = DAMPING_GAIN * copysignf(powf(fabsf(vel), DAMPING_EXPONENT), vel);
         float output = motor_target_voltage - damping;
 
         motor.move(output);
