@@ -1,0 +1,14 @@
+# This file was generated using idf.py save-defconfig. It can be edited manually.
+# Espressif IoT Development Framework (ESP-IDF) Project Minimal Configuration
+#
+CONFIG_TINYUSB_HID_COUNT=1
+CONFIG_FREERTOS_HZ=1000
+
+# For IDF 5.0
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+CONFIG_FREERTOS_HZ=1000
+CONFIG_FREERTOS_TIMER_TASK_STACK_DEPTH=4096
+
+# For IDF4.4
+CONFIG_ESP32S3_DEFAULT_CPU_FREQ_240=y
+CONFIG_FREERTOS_HZ=1000

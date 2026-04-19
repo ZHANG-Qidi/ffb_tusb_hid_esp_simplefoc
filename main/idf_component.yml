@@ -1,0 +1,7 @@
+## IDF Component Manager Manifest File
+dependencies:
+  idf: "==5.5.4"
+  espressif/esp_tinyusb:
+    version: ^2.0.0
+  esp_simplefoc:
+    version: ^1.2.3
