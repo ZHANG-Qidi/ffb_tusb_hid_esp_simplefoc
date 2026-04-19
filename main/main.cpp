@@ -21,95 +21,7 @@
 #include "tinyusb.h"
 #include "tinyusb_default_config.h"
 
-static const char* TAG = "example";
-
-//******************************** SimpleFOC Configuration //********************************
-
-#if CONFIG_SOC_MCPWM_SUPPORTED
-#define USING_MCPWM
-#endif
-
-#define MOTOR_A (9)
-#define MOTOR_B (10)
-#define MOTOR_C (11)
-
-#define WIRE_SDA (GPIO_NUM_13)
-#define WIRE_SCL (GPIO_NUM_14)
-
-BLDCMotor motor = BLDCMotor(7);
-BLDCDriver3PWM driver = BLDCDriver3PWM(MOTOR_A, MOTOR_B, MOTOR_C);
-AS5600 as5600 = AS5600(I2C_NUM_0, WIRE_SCL, WIRE_SDA);
-
-volatile float target_value = 0.0f;
-// Commander command = Commander(Serial);
-// void doTarget(char* cmd) { command.scalar(&target_value, cmd); }
-
-LowPassFilter angle_filter(0.02);
-
-#define DAMPING 0.05f
-
-//******************************** SimpleFOC Function //********************************
-
-volatile float wheel_rad = 0.0f;
-
-static void getAngle_task(void* arg) {
-    TickType_t last = xTaskGetTickCount();
-    for (;;) {
-        vTaskDelayUntil(&last, pdMS_TO_TICKS(2));
-        float raw_angle = as5600.getAngle();
-        float wheel_rad_new = angle_filter(raw_angle);
-        if (fabsf(wheel_rad - wheel_rad_new) < 0.002f) {
-            continue;
-        }
-        wheel_rad = wheel_rad_new;
-    }
-}
-
-static void foc_task(void* arg) {
-    SimpleFOCDebug::enable(); /*!< Enable debug */
-    Serial.begin(115200);
-
-    as5600.init(); /*!< Enable as5600 */
-    motor.linkSensor(&as5600);
-    driver.voltage_power_supply = 12;
-    driver.voltage_limit = 6;
-#ifdef USING_MCPWM
-    driver.init(0);
-#else
-    driver.init({1, 2, 3});
-#endif
-
-    motor.linkDriver(&driver);
-    motor.controller = MotionControlType::torque;
-    motor.torque_controller = TorqueControlType::voltage;
-    // motor.controller = MotionControlType::velocity; /*!< Set position control mode */
-    /*!< Set velocity pid */
-    motor.voltage_limit = 6;
-    motor.voltage_sensor_align = 5;
-    motor.PID_velocity.P = 0.1f;
-    motor.PID_velocity.I = 5.0f;
-    motor.PID_velocity.D = 0.0f;
-    motor.LPF_velocity.Tf = 0.01f;
-    motor.velocity_limit = 200;
-
-    motor.useMonitoring(Serial);
-    motor.init();    /*!< Initialize motor */
-    motor.initFOC(); /*!<  Align sensor and start FOC */
-    // command.add('T', doTarget, const_cast<char*>("target voltage")); /*!< Add serial command */
-
-    TickType_t last = xTaskGetTickCount();
-    for (;;) {
-        vTaskDelayUntil(&last, pdMS_TO_TICKS(1));
-        motor.loopFOC();
-
-        float vel = motor.shaft_velocity;
-        float damping = DAMPING * vel;
-        float output = target_value - damping;
-
-        motor.move(output);
-        // command.run();
-    }
-}
+static const char* TAG = "ffb_tusb_hid_esp_simplefoc";
 
 //******************************** Global Define //********************************
 
@@ -156,6 +68,31 @@ uint8_t const* tud_hid_descriptor_report_cb(uint8_t instance) {
     // We use only one interface and one HID report descriptor, so we can ignore parameter 'instance'
     return G_DefaultReportDescriptor;
 }
+
+//******************************** SimpleFOC Configuration //********************************
+
+#if CONFIG_SOC_MCPWM_SUPPORTED
+#define USING_MCPWM
+#endif
+
+#define MOTOR_A (9)
+#define MOTOR_B (10)
+#define MOTOR_C (11)
+
+#define WIRE_SDA (GPIO_NUM_13)
+#define WIRE_SCL (GPIO_NUM_14)
+
+BLDCMotor motor = BLDCMotor(7);
+BLDCDriver3PWM driver = BLDCDriver3PWM(MOTOR_A, MOTOR_B, MOTOR_C);
+AS5600 as5600 = AS5600(I2C_NUM_0, WIRE_SCL, WIRE_SDA);
+
+volatile float motor_target_voltage = 0.0f;
+// Commander command = Commander(Serial);
+// void doTarget(char* cmd) { command.scalar(&motor_target_voltage, cmd); }
+
+LowPassFilter angle_filter(0.02);
+
+#define DAMPING 0.05f
 
 //******************************** USB JOYSTICK INPUT REPORT //********************************
 
@@ -298,7 +235,7 @@ void ffb_effect_mixer(void) {
         }
     }
     // ESP_LOGI("FFB", "magnitude_constant_force: %f", magnitude_constant_force);
-    target_value = (magnitude_constant_force / 10000.0f * FFB_VOLTAGE_MAX);
+    motor_target_voltage = (magnitude_constant_force / 10000.0f * FFB_VOLTAGE_MAX);
 }
 
 //******************************** tinyUSB FUNCTION //********************************
@@ -465,22 +402,74 @@ static void usb_task(void* arg) {
 
     TickType_t last = xTaskGetTickCount();
     for (;;) {
-        vTaskDelayUntil(&last, pdMS_TO_TICKS(2));
-        if (tud_mounted() && tud_hid_ready()) {
-            static float wheel_rad_last;
-            if (wheel_rad_last == wheel_rad) {
-                continue;
-            }
-            wheel_rad_last = wheel_rad;
+        vTaskDelayUntil(&last, pdMS_TO_TICKS(10));
+    }
+}
 
-            // ESP_LOGI("UART", "A%f", wheel_rad);
-            hid_joystick_input_t joy = {.pov = 8};
-            const uint32_t AXIS_MID = 16383;
-            const float WHEEL_HALF = (M_PI * 4.0f);
-            float wheel_rad_clamped = wheel_rad > WHEEL_HALF ? WHEEL_HALF : (wheel_rad < -WHEEL_HALF ? -WHEEL_HALF : wheel_rad);
-            joy.axis_x = AXIS_MID + wheel_rad_clamped / WHEEL_HALF * AXIS_MID;
-            tud_hid_report(TLID, &joy, sizeof(hid_joystick_input_t));
+//******************************** SimpleFOC Function //********************************
+
+static void foc_read_angle_task(void* arg) {
+    TickType_t last = xTaskGetTickCount();
+    for (;;) {
+        vTaskDelayUntil(&last, pdMS_TO_TICKS(2));
+        if (!(tud_mounted() && tud_hid_ready())) {
+            continue;
         }
+        float raw_angle = as5600.getAngle();
+        float wheel_rad = angle_filter(raw_angle);
+        // ESP_LOGI("UART", "A%f", wheel_rad);
+        hid_joystick_input_t joy = {.pov = 8};
+        const uint32_t AXIS_MID = 16383;
+        const float WHEEL_HALF = (M_PI * 4.0f);
+        float wheel_rad_clamped = wheel_rad > WHEEL_HALF ? WHEEL_HALF : (wheel_rad < -WHEEL_HALF ? -WHEEL_HALF : wheel_rad);
+        joy.axis_x = AXIS_MID + wheel_rad_clamped / WHEEL_HALF * AXIS_MID;
+        tud_hid_report(TLID, &joy, sizeof(hid_joystick_input_t));
+    }
+}
+
+static void foc_task(void* arg) {
+    SimpleFOCDebug::enable(); /*!< Enable debug */
+    Serial.begin(115200);
+
+    as5600.init(); /*!< Enable as5600 */
+    motor.linkSensor(&as5600);
+    driver.voltage_power_supply = 12;
+    driver.voltage_limit = 6;
+#ifdef USING_MCPWM
+    driver.init(0);
+#else
+    driver.init({1, 2, 3});
+#endif
+
+    motor.linkDriver(&driver);
+    motor.controller = MotionControlType::torque;
+    motor.torque_controller = TorqueControlType::voltage;
+    // motor.controller = MotionControlType::velocity; /*!< Set position control mode */
+    /*!< Set velocity pid */
+    motor.voltage_limit = 6;
+    motor.voltage_sensor_align = 5;
+    motor.PID_velocity.P = 0.1f;
+    motor.PID_velocity.I = 5.0f;
+    motor.PID_velocity.D = 0.0f;
+    motor.LPF_velocity.Tf = 0.01f;
+    motor.velocity_limit = 200;
+
+    motor.useMonitoring(Serial);
+    motor.init();    /*!< Initialize motor */
+    motor.initFOC(); /*!<  Align sensor and start FOC */
+    // command.add('T', doTarget, const_cast<char*>("target voltage")); /*!< Add serial command */
+
+    TickType_t last = xTaskGetTickCount();
+    for (;;) {
+        vTaskDelayUntil(&last, pdMS_TO_TICKS(1));
+        motor.loopFOC();
+
+        float vel = motor.shaft_velocity;
+        float damping = DAMPING * vel;
+        float output = motor_target_voltage - damping;
+
+        motor.move(output);
+        // command.run();
     }
 }
 
@@ -555,7 +544,7 @@ static void joystick_test_task(void* arg) {
 extern "C" void app_main(void) {
     xTaskCreate(usb_task, "usb_task", TASK_STACK_SIZE, NULL, 10, NULL);
     xTaskCreate(foc_task, "foc_task", TASK_STACK_SIZE, NULL, 10, NULL);
-    xTaskCreate(getAngle_task, "getAngle_task", TASK_STACK_SIZE, NULL, 10, NULL);
+    xTaskCreate(foc_read_angle_task, "foc_read_angle_task", TASK_STACK_SIZE, NULL, 10, NULL);
     xTaskCreate(joystick_test_task, "joystick_test_task", TASK_STACK_SIZE, NULL, 10, NULL);
 
     TickType_t last = xTaskGetTickCount();
