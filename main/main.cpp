@@ -425,8 +425,8 @@ static void foc_read_angle_task(void* arg) {
     }
 }
 
-#define DAMPING_GAIN (0.01f)
-#define DAMPING_EXPONENT (1.2f)
+#define DAMPING_GAIN (0.015f)
+#define DAMPING_EXPONENT (1.5f)
 
 static void foc_task(void* arg) {
     SimpleFOCDebug::enable(); /*!< Enable debug */
