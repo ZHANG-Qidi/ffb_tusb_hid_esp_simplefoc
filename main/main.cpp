@@ -25,9 +25,19 @@ static const char* TAG = "ffb_tusb_hid_esp_simplefoc";
 
 //******************************** FFB Configuration //********************************
 
-#define FFB_VOLTAGE_MAX (3.0f)
+#define FFB_VOLTAGE_MAX (2.0f)
 
 //******************************** SimpleFOC Configuration //********************************
+
+#define BLDC_MOTOR_PP (10)
+
+#define DAMPING_GAIN_LINEAR (0.015f)
+#define DAMPING_GAIN_QUADRATIC (0.015f)
+#define DAMPING_EXPONENT (1.5f)
+
+#define VOLTAGE_POWER (9.0f)
+#define VOLTAGE_LIMIT (6.0f)
+#define VOLTAGE_SENSOR_ALIGN (2.0f)
 
 #if CONFIG_SOC_MCPWM_SUPPORTED
 #define USING_MCPWM
@@ -39,20 +49,6 @@ static const char* TAG = "ffb_tusb_hid_esp_simplefoc";
 
 #define WIRE_SDA (GPIO_NUM_13)
 #define WIRE_SCL (GPIO_NUM_14)
-
-#define BLDC_MOTOR_PP (7)
-
-#define MOTOR_DIR_CCW (1.0f)
-#define MOTOR_DIR_CW (-1.0f)
-#define MOTOR_DIR MOTOR_DIR_CCW
-
-#define DAMPING_GAIN_LINEAR (0.015f)
-#define DAMPING_GAIN_QUADRATIC (0.015f)
-#define DAMPING_EXPONENT (1.5f)
-
-#define VOLTAGE_POWER (9.0f)
-#define VOLTAGE_LIMIT (6.0f)
-#define VOLTAGE_SENSOR_ALIGN (2.0f)
 
 BLDCMotor motor = BLDCMotor(BLDC_MOTOR_PP);
 BLDCDriver3PWM driver = BLDCDriver3PWM(MOTOR_A, MOTOR_B, MOTOR_C);
@@ -480,11 +476,11 @@ static void foc_task(void* arg) {
         vTaskDelayUntil(&last, pdMS_TO_TICKS(1));
         motor.loopFOC();
 
-        float velocity = motor.shaft_velocity * MOTOR_DIR;
+        float velocity = motor.shaft_velocity;
         float damping = DAMPING_GAIN_LINEAR * velocity + DAMPING_GAIN_QUADRATIC * copysignf(powf(fabsf(velocity), DAMPING_EXPONENT), velocity);
         float output = motor_target_voltage - damping;
 
-        motor.move(output * MOTOR_DIR);
+        motor.move(output);
     }
 }
 
