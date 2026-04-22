@@ -1,4 +1,3 @@
-
 /*
  * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
  *
@@ -21,27 +20,39 @@
 #include "tinyusb.h"
 #include "tinyusb_default_config.h"
 
-static const char* TAG = "ffb_tusb_hid_esp_simplefoc";
+static const char* TAG = "ffb_main";
 
 //******************************** FFB Configuration //********************************
 
-#define FFB_VOLTAGE_MAX (2.0f)
+#define FFB_VOLTAGE_MAX (1.0f)
+#define WHEEL_HALF (M_PI * 4.0f)
+
+#define GAIN_EFFECT_LOGICAL_MAX (255.0f)
+#define GAIN_EFFECT_PHYSICAL_MAX (10000.0f)
+
+#define GAIN_DEVICE_LOGICAL_MAX (255.0f)
+#define GAIN_DEVICE_PHYSICAL_MAX (10000.0f)
+
+#define CONSTANT_MANITUDE_MAX (10000.0f)
+
+#define JOYSTIC_AXIS_LOGICAL_MID (16383.5f)
+#define JOYSTIC_AXIS_LOGICAL_MAX (32767.0f)
+
+#define DAMPING_MAX_VELOCITY (6.0f * PI)
+#define DAMPING_GAIN (0.5f)
+#define MOTOR_GAIN (0.5f)
+
+#define ET_DAMPER_DR2 (0x0b)
+static float damper;
+static float constant_force;
 
 //******************************** SimpleFOC Configuration //********************************
 
-#define BLDC_MOTOR_PP (10)
-
-#define DAMPING_GAIN_LINEAR (0.015f)
-#define DAMPING_GAIN_QUADRATIC (0.015f)
-#define DAMPING_EXPONENT (1.5f)
+#define BLDC_MOTOR_PP (7)
 
 #define VOLTAGE_POWER (9.0f)
 #define VOLTAGE_LIMIT (6.0f)
-#define VOLTAGE_SENSOR_ALIGN (2.0f)
-
-#if CONFIG_SOC_MCPWM_SUPPORTED
-#define USING_MCPWM
-#endif
+#define VOLTAGE_SENSOR_ALIGN (3.0f)
 
 #define MOTOR_A (9)
 #define MOTOR_B (10)
@@ -50,11 +61,18 @@ static const char* TAG = "ffb_tusb_hid_esp_simplefoc";
 #define WIRE_SDA (GPIO_NUM_13)
 #define WIRE_SCL (GPIO_NUM_14)
 
-BLDCMotor motor = BLDCMotor(BLDC_MOTOR_PP);
-BLDCDriver3PWM driver = BLDCDriver3PWM(MOTOR_A, MOTOR_B, MOTOR_C);
+#define FOC_MONITOR_BAUD CONFIG_MONITOR_BAUD
+
+#if CONFIG_SOC_MCPWM_SUPPORTED
+#define USING_MCPWM
+#endif
+
+// magnetic sensor instance - I2C
 AS5600 as5600 = AS5600(I2C_NUM_0, WIRE_SCL, WIRE_SDA);
 
-volatile float motor_target_voltage = 0.0f;
+// BLDC motor & driver instance
+BLDCMotor motor = BLDCMotor(BLDC_MOTOR_PP);
+BLDCDriver3PWM driver = BLDCDriver3PWM(MOTOR_A, MOTOR_B, MOTOR_C);
 
 //******************************** tinyUSB Configuration //********************************
 
@@ -87,7 +105,7 @@ const char* hid_string_descriptor[5] = {
 static const uint8_t hid_configuration_descriptor[] = {
     // Configuration number, interface count, string index, total length, attribute, power in mA
     TUD_CONFIG_DESCRIPTOR(1, 1, 0, TUSB_DESC_IN_OUT_TOTAL_LEN, TUSB_DESC_CONFIG_ATT_SELF_POWERED, 100),
-    // HID Input & Output descriptor
+    // HID Input & torque_ratio descriptor
     // Interface number, string index, protocol, report descriptor len, EP OUT & IN address, size & polling interval
     TUD_HID_INOUT_DESCRIPTOR(0, 4, false, sizeof(G_DefaultReportDescriptor), 0x81, 0x01, 64, 1),
 };
@@ -98,6 +116,27 @@ uint8_t const* tud_hid_descriptor_report_cb(uint8_t instance) {
     // We use only one interface and one HID report descriptor, so we can ignore parameter 'instance'
     return G_DefaultReportDescriptor;
 }
+
+tusb_desc_device_t const desc_device = {.bLength = sizeof(tusb_desc_device_t),
+                                        .bDescriptorType = TUSB_DESC_DEVICE,
+                                        .bcdUSB = 0x0200,
+
+                                        .bDeviceClass = 0x00,
+                                        .bDeviceSubClass = 0x00,
+                                        .bDeviceProtocol = 0x00,
+
+                                        .bMaxPacketSize0 = CFG_TUD_ENDPOINT0_SIZE,
+
+                                        .idVendor = 0x045E,   // ms_sidewinder_ffb
+                                        .idProduct = 0x0034,  // ms_sidewinder_ffb
+
+                                        .bcdDevice = 0x0100,
+
+                                        .iManufacturer = 0x01,
+                                        .iProduct = 0x02,
+                                        .iSerialNumber = 0x03,
+
+                                        .bNumConfigurations = 0x01};
 
 //******************************** FreeRTOS Configuration //********************************
 
@@ -135,7 +174,7 @@ typedef struct __attribute__((packed)) {
     };
 } hid_joystick_input_t;
 
-//******************************** USB OUTPUT REPORT //********************************
+//******************************** USB torque_ratio REPORT //********************************
 
 // Usage PID Device Control
 typedef enum { DC_ENABLE_ACTUATORS = 1, DC_DISABLE_ACTUATORS, DC_STOP_ALL_EFFECTS, DC_DEVICE_RESET, DC_DEVICE_PAUSE, DC_DEVICE_CONTINUE } PID_Device_Control;
@@ -185,36 +224,57 @@ typedef struct __attribute__((packed)) {
     uint8_t loop_count;  // Usage Loop Count
 } operation_report_t;
 
+// Usage Set Condition Report
+typedef struct __attribute__((packed)) {
+    uint8_t index;                       // Usage Effect Block Index
+    uint8_t parameter_block_offset : 4;  // Usage Parameter Block Offset
+    uint8_t ordinals_instance_1 : 2;     // Usage Ordinals: Instance 1
+    uint8_t ordinals_instance_2 : 2;     // Usage Ordinals: Instance 2
+    int16_t CP_offset;                   // Usage CP Offset
+    int16_t positive_coefficient;        // Usage Positive Coefficient
+    int16_t negative_coefficient;        // Usage Negative Coefficient
+    uint16_t positive_saturation;        // Usage Positive Saturation
+    uint16_t negative_saturation;        // Usage Negative Saturation
+    uint16_t dead_band;                  // Usage Dead Band
+} condition_report_t;
 //******************************** FFB EFFECT POOL //********************************
+
+#define EFFECT_REPORT_LEN (17)
+#define OPERATION_REPORT_LEN (3)
+#define CONDITION_REPORT_LEN (14)
 
 typedef struct {
     uint8_t allocated;
     union {
-        uint8_t effect_report_raw[17];
+        uint8_t effect_report_raw[EFFECT_REPORT_LEN];
         effect_report_t effect_report;
     };
     union {
-        uint8_t operation_report_raw[3];
+        uint8_t operation_report_raw[OPERATION_REPORT_LEN];
         operation_report_t operation_report;
     };
     union {
         struct {
             int16_t magnitude;    // Usage Magnitude
         } constant_force_report;  // Usage Set Constant Force Report
+        union {
+            uint8_t condition_report_raw[CONDITION_REPORT_LEN];
+            condition_report_t condition_report;  // Usage Set Condition Report
+        };
     };
 } ffb_effect_t;
 
-#define FFB_EFFECT_COUNT 16
+#define FFB_EFFECT_COUNT 32
+
 static ffb_effect_t g_effect_pool[FFB_EFFECT_COUNT];
 static uint8_t g_effect_type;
 static uint8_t g_effect_block_index;
 static uint8_t g_effect_block_status;
-static uint8_t g_effect_gain;
+static uint8_t g_gain_device;
 
 //******************************** FFB Function //********************************
 
 void ffb_effect_mixer(void) {
-    float magnitude_constant_force = 0.0f;
     for (int i = 0; i < FFB_EFFECT_COUNT; i++) {
         if (g_effect_pool[i].allocated == BLOCK_FREE) {
             continue;
@@ -226,13 +286,16 @@ void ffb_effect_mixer(void) {
         // float trigger_repeat_interval_ms = g_effect_pool[i].effect_report.trigger_repeat_interval * 0.1f;
         // float sample_period_ms = g_effect_pool[i].effect_report.sample_period * 0.1f;
         // float direction_deg = g_effect_pool[i].effect_report.direction[0] / 255.0f * 360.0f;
-        float gain_10000 = g_effect_pool[i].effect_report.gain / 255.0f * 10000.0f;
-        float g_effect_gain_10000 = g_effect_gain / 255.0f * 10000.0f;
+        float gain_effect_scale = g_effect_pool[i].effect_report.gain / GAIN_EFFECT_LOGICAL_MAX;
+        float gain_device_scale = g_gain_device / GAIN_DEVICE_LOGICAL_MAX;
         switch (g_effect_pool[i].effect_report.type) {
             case ET_CONSTANT: {
-                int16_t magnitude_i16 = g_effect_pool[i].constant_force_report.magnitude;
-                float magnitude_scaled = magnitude_i16 * (gain_10000 / 10000.0f) * (g_effect_gain_10000 / 10000.0f);
-                magnitude_constant_force += magnitude_scaled;
+                int16_t magnitude = g_effect_pool[i].constant_force_report.magnitude;
+                constant_force = magnitude * gain_effect_scale * gain_device_scale / CONSTANT_MANITUDE_MAX * MOTOR_GAIN;
+                break;
+            }
+            case ET_DAMPER_DR2: {
+                damper = (float)g_effect_pool[i].condition_report.positive_coefficient / (float)g_effect_pool[i].condition_report.positive_saturation;
                 break;
             }
             default: {
@@ -241,8 +304,6 @@ void ffb_effect_mixer(void) {
             }
         }
     }
-    // ESP_LOGI("FFB", "magnitude_constant_force: %f", magnitude_constant_force);
-    motor_target_voltage = (magnitude_constant_force / 10000.0f * FFB_VOLTAGE_MAX);
 }
 
 //******************************** tinyUSB Function //********************************
@@ -271,19 +332,25 @@ uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_t
     if (report_type == HID_REPORT_TYPE_INPUT) {
     }
     if (report_type == HID_REPORT_TYPE_FEATURE) {
-        if (report_id == (HID_ID_POOLREP + 0x10 * TLID)) {
-            buffer[0] = 0xff;
-            buffer[1] = 0xff;
-            buffer[2] = FFB_EFFECT_COUNT;
-            buffer[3] = 0x01;
-            return 4;
-        }
-        if (report_id == (HID_ID_BLKLDREP + 0x10 * TLID)) {
-            buffer[0] = g_effect_block_index;
-            buffer[1] = g_effect_block_status;
-            buffer[2] = 0x00;
-            buffer[3] = 0x00;
-            return 4;
+        switch (report_id) {
+            case (HID_ID_POOLREP + 0x10 * TLID): {
+                buffer[0] = 0xff;
+                buffer[1] = 0xff;
+                buffer[2] = FFB_EFFECT_COUNT;
+                buffer[3] = 0x01;
+                return 4;
+            }
+            case (HID_ID_BLKLDREP + 0x10 * TLID): {
+                buffer[0] = g_effect_block_index;
+                buffer[1] = g_effect_block_status;
+                buffer[2] = 0x00;
+                buffer[3] = 0x00;
+                return 4;
+            }
+            default: {
+                ESP_LOGI("HID", "Unimplemented GET_REPORT HID_REPORT_TYPE_FEATURE: %d", report_id);
+                break;
+            }
         }
     }
     if (report_type == HID_REPORT_TYPE_OUTPUT) {
@@ -299,6 +366,8 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
     if (report_type == HID_REPORT_TYPE_INPUT) {
     }
     if (report_type == HID_REPORT_TYPE_FEATURE) {
+        ESP_LOGI("HID", "SET_REPORT: inst=%u id=%u type=%u size=%u", instance, report_id, report_type, bufsize);
+        dump_hex(buffer, bufsize);
         switch (report_id) {
             case (HID_ID_NEWEFREP + 0x10 * TLID): {
                 uint8_t type = buffer[0];
@@ -316,8 +385,7 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
                 break;
             }
             default: {
-                ESP_LOGI("HID", "SET_REPORT: inst=%u id=%u type=%u size=%u", instance, report_id, report_type, bufsize);
-                dump_hex(buffer, bufsize);
+                ESP_LOGI("HID", "Unimplemented SET_REPORT HID_REPORT_TYPE_FEATURE: %d", report_id);
                 break;
             }
         }
@@ -342,11 +410,12 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
                     case DC_DEVICE_CONTINUE:
                         break;
                     default:
+                        ESP_LOGI("HID", "Unimplemented Usage PID Device Control: %d", buffer[1]);
                         break;
                 }
                 break;
             case (HID_ID_GAINREP + 0x10 * TLID): {
-                g_effect_gain = buffer[1];
+                g_gain_device = buffer[1];
                 break;
             }
             case (HID_ID_CONSTREP + 0x10 * TLID): {
@@ -356,7 +425,7 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
                 break;
             }
             case (HID_ID_EFOPREP + 0x10 * TLID): {
-                memcpy(g_effect_pool[buffer[1] - 1].operation_report_raw, &buffer[1], sizeof(g_effect_pool[buffer[1] - 1].operation_report_raw));
+                memcpy(g_effect_pool[buffer[1] - 1].operation_report_raw, &buffer[1], OPERATION_REPORT_LEN);
                 break;
             }
             case (HID_ID_BLKFRREP + 0x10 * TLID): {
@@ -365,12 +434,15 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
                 break;
             }
             case (HID_ID_EFFREP + 0x10 * TLID): {
-                memcpy(g_effect_pool[buffer[1] - 1].effect_report_raw, &buffer[1], sizeof(g_effect_pool[buffer[1] - 1].effect_report_raw));
+                memcpy(g_effect_pool[buffer[1] - 1].effect_report_raw, &buffer[1], EFFECT_REPORT_LEN);
+                break;
+            }
+            case (HID_ID_CONDREP + 0x10 * TLID): {
+                memcpy(g_effect_pool[buffer[1] - 1].condition_report_raw, &buffer[1], CONDITION_REPORT_LEN);
                 break;
             }
             default: {
-                ESP_LOGI("HID", "SET_REPORT: inst=%u id=%u type=%u size=%u", instance, report_id, report_type, bufsize);
-                dump_hex(buffer, bufsize);
+                ESP_LOGI("HID", "Unimplemented SET_REPORT HID_REPORT_TYPE_OUTPUT: %d", buffer[0]);
                 break;
             }
         }
@@ -397,7 +469,8 @@ void tud_resume_cb(void) {
 static void usb_task(void* arg) {
     ESP_LOGI(TAG, "USB initialization");
     tinyusb_config_t tusb_cfg = TINYUSB_DEFAULT_CONFIG();
-    tusb_cfg.descriptor.device = NULL;
+    // tusb_cfg.descriptor.device = NULL;
+    tusb_cfg.descriptor.device = &desc_device;
     tusb_cfg.descriptor.full_speed_config = hid_configuration_descriptor;
     tusb_cfg.descriptor.string = hid_string_descriptor;
     tusb_cfg.descriptor.string_count = sizeof(hid_string_descriptor) / sizeof(hid_string_descriptor[0]);
@@ -415,20 +488,31 @@ static void usb_task(void* arg) {
 
 //******************************** SimpleFOC Function //********************************
 
-static void foc_read_angle_task(void* arg) {
+static void wheel_read_task(void* arg) {
     TickType_t last = xTaskGetTickCount();
     for (;;) {
-        vTaskDelayUntil(&last, pdMS_TO_TICKS(2));
+        vTaskDelayUntil(&last, pdMS_TO_TICKS(1));
         if (!(tud_mounted() && tud_hid_ready())) {
             continue;
         }
         float wheel_rad = as5600.getAngle();
+        static float wheel_rad_last;
+        if (fabsf(wheel_rad_last - wheel_rad) < 0.002f) {
+            continue;
+        }
+        wheel_rad_last = wheel_rad;
         // ESP_LOGI("FFB", "A%f", wheel_rad);
-        hid_joystick_input_t joy = {.pov = 8};
-        const uint32_t AXIS_MID = 16383;
-        const float WHEEL_HALF = (M_PI * 4.0f);
+        hid_joystick_input_t joy = {.axis_x = (uint32_t)JOYSTIC_AXIS_LOGICAL_MID,
+                                    .axis_y = (uint32_t)JOYSTIC_AXIS_LOGICAL_MID,
+                                    .axis_z = (uint32_t)JOYSTIC_AXIS_LOGICAL_MID,
+                                    .axis_rx = (uint32_t)JOYSTIC_AXIS_LOGICAL_MID,
+                                    .axis_ry = (uint32_t)JOYSTIC_AXIS_LOGICAL_MID,
+                                    .axis_rz = (uint32_t)JOYSTIC_AXIS_LOGICAL_MID,
+                                    .slider = (uint32_t)JOYSTIC_AXIS_LOGICAL_MID,
+                                    .dial = (uint32_t)JOYSTIC_AXIS_LOGICAL_MID,
+                                    .pov = 8};
         float wheel_rad_clamped = wheel_rad > WHEEL_HALF ? WHEEL_HALF : (wheel_rad < -WHEEL_HALF ? -WHEEL_HALF : wheel_rad);
-        joy.axis_x = AXIS_MID + wheel_rad_clamped / WHEEL_HALF * AXIS_MID;
+        joy.axis_x = JOYSTIC_AXIS_LOGICAL_MID + wheel_rad_clamped / WHEEL_HALF * JOYSTIC_AXIS_LOGICAL_MID;
         tud_hid_report(TLID, &joy, sizeof(hid_joystick_input_t));
     }
 }
@@ -459,11 +543,13 @@ static void foc_task(void* arg) {
     motor.torque_controller = TorqueControlType::voltage;
 
     // use monitoring with serial
-    vTaskDelay(pdMS_TO_TICKS(10));
-    Serial.begin(115200);
+    vTaskDelay(pdMS_TO_TICKS(100));
+    Serial.begin(FOC_MONITOR_BAUD);
 
     // comment out if not needed
+    vTaskDelay(pdMS_TO_TICKS(100));
     SimpleFOCDebug::enable();
+    vTaskDelay(pdMS_TO_TICKS(100));
     motor.useMonitoring(Serial);
 
     // initialize motor
@@ -474,79 +560,26 @@ static void foc_task(void* arg) {
     TickType_t last = xTaskGetTickCount();
     for (;;) {
         vTaskDelayUntil(&last, pdMS_TO_TICKS(1));
+
+        // main FOC algorithm function
+        // the faster you run this function the better
+        // Arduino UNO loop  ~1kHz
+        // Bluepill loop ~10kHz
         motor.loopFOC();
 
-        float velocity = motor.shaft_velocity;
-        float damping = DAMPING_GAIN_LINEAR * velocity + DAMPING_GAIN_QUADRATIC * copysignf(powf(fabsf(velocity), DAMPING_EXPONENT), velocity);
-        float output = motor_target_voltage - damping;
+        damper = damper < 0.2f ? 0.2f : damper;
+        float damping = damper * DAMPING_GAIN * motor.shaft_velocity / DAMPING_MAX_VELOCITY;
+        float torque_ratio = constant_force - damping;
+        torque_ratio = torque_ratio > 1.0f ? 1.0f : (torque_ratio < -1.0f ? -1.0f : torque_ratio);
 
-        motor.move(output);
-    }
-}
+        // voltage set point variable
+        float target_voltage = VOLTAGE_LIMIT * torque_ratio;
 
-//******************************** Joystic Test Function //********************************
-
-#define APP_BUTTON (GPIO_NUM_0)  // Use BOOT signal by default
-
-static void joystick_test(void) {
-    ESP_LOGI(TAG, "Sending Joystick X-axis sweep demo");
-    const uint32_t AXIS_MID = 16384;
-    const uint32_t AXIS_MAX = 32767;
-    const uint32_t STEP = 256;
-    const uint8_t DELAY_MS = 20;
-    hid_joystick_input_t joy = {.pov = 8};
-    joy.axis_x = AXIS_MID;
-
-    ESP_LOGI(TAG, "X-axis moving from mid to max");
-    for (uint32_t x = AXIS_MID; x <= AXIS_MAX; x += STEP) {
-        joy.axis_x = x;
-        tud_hid_report(TLID, &joy, sizeof(hid_joystick_input_t));
-        vTaskDelay(pdMS_TO_TICKS(DELAY_MS));
-    }
-
-    ESP_LOGI(TAG, "X-axis moving from max back to mid");
-    for (uint32_t x = AXIS_MAX; x >= AXIS_MID; x -= STEP) {
-        joy.axis_x = x;
-        tud_hid_report(TLID, &joy, sizeof(hid_joystick_input_t));
-        vTaskDelay(pdMS_TO_TICKS(DELAY_MS));
-    }
-
-    joy.axis_x = AXIS_MID;
-    tud_hid_report(TLID, &joy, sizeof(hid_joystick_input_t));
-    ESP_LOGI(TAG, "X-axis sweep demo finished, reset to mid");
-}
-
-static void joystick_test_task(void* arg) {
-    // Initialize button that will trigger HID reports
-    const gpio_config_t boot_button_config = {
-        .pin_bit_mask = BIT64(APP_BUTTON),
-        .mode = GPIO_MODE_INPUT,
-        .pull_up_en = GPIO_PULLUP_ENABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE,
-    };
-    ESP_ERROR_CHECK(gpio_config(&boot_button_config));
-
-    TickType_t last = xTaskGetTickCount();
-    for (;;) {
-        vTaskDelayUntil(&last, pdMS_TO_TICKS(10));
-        if (tud_mounted()) {
-            static bool send_hid_data = false;
-            if (send_hid_data) {
-                if (!suspended) {
-                    joystick_test();
-                } else {
-                    if (wakeup_host) {
-                        ESP_LOGI(TAG, "Waking up the Host");
-                        tud_remote_wakeup();
-                        wakeup_host = false;
-                    } else {
-                        ESP_LOGI(TAG, "USB Host remote wakeup is not available.");
-                    }
-                }
-            }
-            send_hid_data = !gpio_get_level(APP_BUTTON);
-        }
+        // Motion control function
+        // current_velocity, position or voltage (defined in motor.controller)
+        // this function can be run at much lower frequency than loopFOC() function
+        // You can also use motor.move() and set the motor.target in the code
+        motor.move(target_voltage);
     }
 }
 
@@ -555,8 +588,7 @@ static void joystick_test_task(void* arg) {
 extern "C" void app_main(void) {
     xTaskCreate(usb_task, "usb_task", TASK_STACK_SIZE, NULL, 10, NULL);
     xTaskCreate(foc_task, "foc_task", TASK_STACK_SIZE, NULL, 10, NULL);
-    xTaskCreate(foc_read_angle_task, "foc_read_angle_task", TASK_STACK_SIZE, NULL, 10, NULL);
-    xTaskCreate(joystick_test_task, "joystick_test_task", TASK_STACK_SIZE, NULL, 10, NULL);
+    xTaskCreate(wheel_read_task, "wheel_read_task", TASK_STACK_SIZE, NULL, 10, NULL);
 
     TickType_t last = xTaskGetTickCount();
     for (;;) {
