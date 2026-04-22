@@ -40,7 +40,7 @@ static const char* TAG = "ffb_main";
 
 #define DAMPING_MAX_VELOCITY (6.0f * PI)
 #define DAMPING_GAIN (0.5f)
-#define MOTOR_GAIN (0.5f)
+#define MOTOR_GAIN (0.2f)
 
 #define ET_DAMPER_DR2 (0x0b)
 static float damper;
@@ -274,7 +274,7 @@ static uint8_t g_gain_device;
 
 //******************************** FFB Function //********************************
 
-void ffb_effect_mixer(void) {
+static void ffb_effect_mixer(void) {
     for (int i = 0; i < FFB_EFFECT_COUNT; i++) {
         if (g_effect_pool[i].allocated == BLOCK_FREE) {
             continue;
@@ -306,6 +306,13 @@ void ffb_effect_mixer(void) {
     }
 }
 
+static void ffb_effect_mixer_task(void* arg) {
+    TickType_t last = xTaskGetTickCount();
+    for (;;) {
+        vTaskDelayUntil(&last, pdMS_TO_TICKS(1));
+        ffb_effect_mixer();
+    }
+}
 //******************************** tinyUSB Function //********************************
 
 union u8_2_16 {
@@ -446,7 +453,6 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
                 break;
             }
         }
-        ffb_effect_mixer();
     }
 }
 
@@ -589,6 +595,7 @@ extern "C" void app_main(void) {
     xTaskCreate(usb_task, "usb_task", TASK_STACK_SIZE, NULL, 10, NULL);
     xTaskCreate(foc_task, "foc_task", TASK_STACK_SIZE, NULL, 10, NULL);
     xTaskCreate(wheel_read_task, "wheel_read_task", TASK_STACK_SIZE, NULL, 10, NULL);
+    xTaskCreate(ffb_effect_mixer_task, "ffb_effect_mixer_task", TASK_STACK_SIZE, NULL, 10, NULL);
 
     TickType_t last = xTaskGetTickCount();
     for (;;) {
