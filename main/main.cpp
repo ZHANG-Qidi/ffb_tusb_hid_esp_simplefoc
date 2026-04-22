@@ -224,6 +224,12 @@ typedef struct __attribute__((packed)) {
     uint8_t loop_count;  // Usage Loop Count
 } operation_report_t;
 
+// Usage Set Constant Force Report
+typedef struct __attribute__((packed)) {
+    uint8_t index;      // Usage Effect Block Index
+    int16_t magnitude;  // Usage Magnitude
+} constant_force_report_t;
+
 // Usage Set Condition Report
 typedef struct __attribute__((packed)) {
     uint8_t index;                       // Usage Effect Block Index
@@ -237,10 +243,12 @@ typedef struct __attribute__((packed)) {
     uint16_t negative_saturation;        // Usage Negative Saturation
     uint16_t dead_band;                  // Usage Dead Band
 } condition_report_t;
+
 //******************************** FFB EFFECT POOL //********************************
 
 #define EFFECT_REPORT_LEN (17)
 #define OPERATION_REPORT_LEN (3)
+#define CONSTANT_FORCE_REPORT_LEN (3)
 #define CONDITION_REPORT_LEN (14)
 
 typedef struct {
@@ -254,9 +262,10 @@ typedef struct {
         operation_report_t operation_report;
     };
     union {
-        struct {
-            int16_t magnitude;    // Usage Magnitude
-        } constant_force_report;  // Usage Set Constant Force Report
+        union {
+            uint8_t constant_force_report_raw[CONSTANT_FORCE_REPORT_LEN];
+            constant_force_report_t constant_force_report;  // Usage Set Constant Force Report
+        };
         union {
             uint8_t condition_report_raw[CONDITION_REPORT_LEN];
             condition_report_t condition_report;  // Usage Set Condition Report
@@ -314,12 +323,6 @@ static void ffb_effect_mixer_task(void* arg) {
     }
 }
 //******************************** tinyUSB Function //********************************
-
-union u8_2_16 {
-    uint8_t u8[2];
-    int16_t i16;
-    uint16_t u16;
-} u8_2_16;
 
 static void dump_hex(const uint8_t* buf, int len) {
     char line[256];
@@ -426,9 +429,7 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
                 break;
             }
             case (HID_ID_CONSTREP + 0x10 * TLID): {
-                u8_2_16.u8[0] = buffer[2];
-                u8_2_16.u8[1] = buffer[3];
-                g_effect_pool[buffer[1] - 1].constant_force_report.magnitude = u8_2_16.i16;
+                memcpy(g_effect_pool[buffer[1] - 1].constant_force_report_raw, &buffer[1], CONSTANT_FORCE_REPORT_LEN);
                 break;
             }
             case (HID_ID_EFOPREP + 0x10 * TLID): {
