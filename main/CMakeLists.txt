@@ -1,5 +1,5 @@
 idf_component_register(
-    SRCS "main.cpp"
+    SRCS "usb.cpp" "ffb.cpp" "simple_foc.cpp" "main.cpp"
     INCLUDE_DIRS "."
     REQUIRES esp_driver_gpio
     PRIV_REQUIRES esp_driver_gpio
