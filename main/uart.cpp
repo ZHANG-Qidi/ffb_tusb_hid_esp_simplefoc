@@ -4,6 +4,7 @@
 #include "ffb.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "interface.h"
 
 static const char* TAG = "ffb_uart";
 
@@ -24,11 +25,7 @@ static const char* TAG = "ffb_uart";
 
 TaskHandle_t uart_write_task_handle;
 
-extern void ffb_output(float* constant_force, float* damper);
-
 //******************************** UART Output //********************************
-
-extern TaskHandle_t usb_task_handle;
 
 static float g_wheel_rad;
 
@@ -76,7 +73,7 @@ static void uart_read_task(void* arg) {
                     // ESP_LOGI(TAG, "%s", buf);
                     if (buf[0] == 'A') {
                         g_wheel_rad = strtof(&buf[1], NULL);
-                        xTaskNotify(usb_task_handle, 0, eSetBits);
+                        xTaskNotify(*usb_task_handle, 0, eSetBits);
                     }
                     break;
                 }
@@ -104,14 +101,14 @@ static void uart_write_task(void* arg) {
         ffb_output(&constant_force, &damper);
         // Write data to the UART
         char data[64];
-        sprintf(data, "T%f\n", constant_force);
+        sprintf(data, "F%f\n", constant_force);
         uart_write_bytes(UART_PORT_NUM, (const char*)data, strlen(data));
         sprintf(data, "D%f\n", damper);
         uart_write_bytes(UART_PORT_NUM, (const char*)data, strlen(data));
     }
 }
 
-void uart_init(void) {
+void uart_foc_init(void) {
     xTaskCreate(uart_read_task, "uart_read_task", TASK_STACK_SIZE, NULL, 10, NULL);
     xTaskCreate(uart_write_task, "uart_write_task", TASK_STACK_SIZE, NULL, 10, &uart_write_task_handle);
 }

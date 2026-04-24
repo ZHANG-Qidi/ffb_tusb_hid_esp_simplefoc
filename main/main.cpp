@@ -6,15 +6,14 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-
-extern void foc_init(void);
-extern void usb_init(void);
+#include "interface.h"
 
 //******************************** MAIN Function //********************************
 
 extern "C" void app_main(void) {
+    interface_init();
     usb_init();
-    foc_init();
+    motor_init();
     TickType_t last = xTaskGetTickCount();
     for (;;) {
         vTaskDelayUntil(&last, pdMS_TO_TICKS(10));

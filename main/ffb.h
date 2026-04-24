@@ -165,4 +165,6 @@ uint16_t ffb_get_feature(uint8_t report_id, uint8_t* buffer);
 void ffb_set_feature(uint8_t report_id, const uint8_t* buffer);
 void ffb_set_output(const uint8_t* buffer);
 
+void ffb_output(float* constant_force, float* damper);
+
 #endif

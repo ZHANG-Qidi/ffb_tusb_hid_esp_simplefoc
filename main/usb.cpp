@@ -9,6 +9,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "hidReportDesc.h"
+#include "interface.h"
 #include "tinyusb.h"
 #include "tinyusb_default_config.h"
 
@@ -16,9 +17,7 @@ static const char* TAG = "ffb_usb";
 
 //******************************** tinyUSB Input //********************************
 
-TaskHandle_t usb_task_handle;
-
-extern void foc_output(float* wheel_rad);
+TaskHandle_t tiny_usb_task_handle;
 
 //******************************** tinyUSB Output //********************************
 
@@ -176,11 +175,11 @@ static void usb_task(void* arg) {
                                     .dial = (uint32_t)JOYSTIC_AXIS_LOGICAL_MID,
                                     .pov = 8};
         float wheel_rad;
-        foc_output(&wheel_rad);
+        motor_output(&wheel_rad);
         float wheel_rad_clamped = wheel_rad > WHEEL_HALF ? WHEEL_HALF : (wheel_rad < -WHEEL_HALF ? -WHEEL_HALF : wheel_rad);
         joy.axis_x = JOYSTIC_AXIS_LOGICAL_MID + wheel_rad_clamped / WHEEL_HALF * JOYSTIC_AXIS_LOGICAL_MID;
         tud_hid_report(TLID, &joy, sizeof(hid_joystick_input_t));
     }
 }
 
-void usb_init(void) { xTaskCreate(usb_task, "usb_task", TASK_STACK_SIZE, NULL, 10, &usb_task_handle); }
+void tiny_usb_init(void) { xTaskCreate(usb_task, "usb_task", TASK_STACK_SIZE, NULL, 10, &tiny_usb_task_handle); }

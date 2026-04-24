@@ -4,6 +4,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "hidReportDesc.h"
+#include "interface.h"
 
 static const char* TAG = "ffb_ffb";
 
@@ -21,8 +22,6 @@ static uint8_t g_gain_device;
 static ffb_effect_t g_effect_pool[FFB_EFFECT_COUNT];
 
 //******************************** FFB Output //********************************
-
-extern TaskHandle_t foc_task_handle;
 
 static float g_constant_force;
 static float g_damper;
@@ -68,7 +67,7 @@ void ffb_mixer(void) {
             }
         }
     }
-    xTaskNotify(foc_task_handle, 0, eSetBits);
+    xTaskNotify(*motor_task_handle, 0, eSetBits);
 }
 
 uint16_t ffb_get_feature(uint8_t report_id, uint8_t* buffer) {

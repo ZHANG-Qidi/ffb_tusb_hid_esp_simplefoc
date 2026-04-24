@@ -8,6 +8,7 @@
 #include "ffb.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "interface.h"
 
 //******************************** SimpleFOC Configuration //********************************
 
@@ -34,11 +35,7 @@ TaskHandle_t foc_task_handle;
 static float g_constant_force;
 static float g_damper;
 
-extern void ffb_output(float* constant_force, float* damper);
-
 //******************************** SimpleFOC Output //********************************
-
-extern TaskHandle_t usb_task_handle;
 
 static float g_wheel_rad;
 
@@ -68,7 +65,7 @@ static void get_angle_task(void* arg) {
         }
         wheel_rad_last = wheel_rad;
         g_wheel_rad = wheel_rad;
-        xTaskNotify(usb_task_handle, 0, eSetBits);
+        xTaskNotify(*usb_task_handle, 0, eSetBits);
         // ESP_LOGI("FFB", "A%f", wheel_rad);
     }
 }
