@@ -16,7 +16,9 @@ static const char* TAG = "ffb_usb";
 
 //******************************** tinyUSB Input //********************************
 
-extern float g_wheel_rad;
+TaskHandle_t usb_task_handle;
+
+extern void foc_output(float* wheel_rad);
 
 //******************************** tinyUSB Output //********************************
 
@@ -93,7 +95,7 @@ static void dump_hex(const uint8_t* buf, int len) {
     for (int i = 0; i < len; i++) {
         pos += snprintf(line + pos, sizeof(line) - pos, "%02X ", buf[i]);
     }
-    ESP_EARLY_LOGI(TAG, "%s", line);
+    ESP_LOGI(TAG, "%s", line);
 }
 
 // Invoked when received GET_REPORT control request
@@ -105,26 +107,7 @@ uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_t
     if (report_type == HID_REPORT_TYPE_INPUT) {
     }
     if (report_type == HID_REPORT_TYPE_FEATURE) {
-        switch (report_id) {
-            case (HID_ID_POOLREP + 0x10 * TLID): {
-                buffer[0] = 0xff;
-                buffer[1] = 0xff;
-                buffer[2] = FFB_EFFECT_COUNT;
-                buffer[3] = 0x01;
-                return 4;
-            }
-            case (HID_ID_BLKLDREP + 0x10 * TLID): {
-                buffer[0] = g_effect_block_index;
-                buffer[1] = g_effect_block_status;
-                buffer[2] = 0x00;
-                buffer[3] = 0x00;
-                return 4;
-            }
-            default: {
-                ESP_LOGI(TAG, "Unimplemented GET_REPORT HID_REPORT_TYPE_FEATURE: %d", report_id);
-                break;
-            }
-        }
+        return ffb_get_feature(report_id, buffer);
     }
     if (report_type == HID_REPORT_TYPE_OUTPUT) {
     }
@@ -136,90 +119,16 @@ uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_t
 void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t const* buffer, uint16_t bufsize) {
     // ESP_LOGI(TAG, "SET_REPORT: inst=%u id=%u type=%u size=%u", instance, report_id, report_type, bufsize);
     // dump_hex(buffer, bufsize);
-    portENTER_CRITICAL_ISR(&ffb_spinlock);
     if (report_type == HID_REPORT_TYPE_INPUT) {
     }
     if (report_type == HID_REPORT_TYPE_FEATURE) {
-        ESP_EARLY_LOGI(TAG, "SET_REPORT: inst=%u id=%u type=%u size=%u", instance, report_id, report_type, bufsize);
+        ESP_LOGI(TAG, "SET_REPORT: inst=%u id=%u type=%u size=%u", instance, report_id, report_type, bufsize);
         dump_hex(buffer, bufsize);
-        switch (report_id) {
-            case (HID_ID_NEWEFREP + 0x10 * TLID): {
-                uint8_t type = buffer[0];
-                g_effect_type = type;
-                g_effect_block_index = 0;
-                g_effect_block_status = BLOCK_LOAD_ERROR;
-                for (int i = 0; i < FFB_EFFECT_COUNT; i++) {
-                    if (!g_effect_pool[i].allocated) {
-                        g_effect_pool[i].allocated = BLOCK_ACCLOCATED;
-                        g_effect_block_index = i + 1;
-                        g_effect_block_status = BLOCK_LOAD_SUCCESS;
-                        break;
-                    }
-                }
-                break;
-            }
-            default: {
-                ESP_EARLY_LOGI(TAG, "Unimplemented SET_REPORT HID_REPORT_TYPE_FEATURE: %d", report_id);
-                break;
-            }
-        }
+        ffb_set_feature(report_id, buffer);
     }
     if (report_type == HID_REPORT_TYPE_OUTPUT) {
-        switch (buffer[0]) {
-            case (HID_ID_CTRLREP + 0x10 * TLID):
-                switch (buffer[1]) {
-                    case DC_ENABLE_ACTUATORS:
-                        break;
-                    case DC_DISABLE_ACTUATORS:
-                        break;
-                    case DC_STOP_ALL_EFFECTS: {
-                        for (int i = 0; i < FFB_EFFECT_COUNT; i++) {
-                            g_effect_pool[i].operation_report.operation = EFFECT_STOP;
-                        }
-                    } break;
-                    case DC_DEVICE_RESET:
-                        break;
-                    case DC_DEVICE_PAUSE:
-                        break;
-                    case DC_DEVICE_CONTINUE:
-                        break;
-                    default:
-                        ESP_EARLY_LOGI(TAG, "Unimplemented Usage PID Device Control: %d", buffer[1]);
-                        break;
-                }
-                break;
-            case (HID_ID_GAINREP + 0x10 * TLID): {
-                g_gain_device = buffer[1];
-                break;
-            }
-            case (HID_ID_CONSTREP + 0x10 * TLID): {
-                memcpy(g_effect_pool[buffer[1] - 1].constant_force_report_raw, &buffer[1], CONSTANT_FORCE_REPORT_LEN);
-                break;
-            }
-            case (HID_ID_EFOPREP + 0x10 * TLID): {
-                memcpy(g_effect_pool[buffer[1] - 1].operation_report_raw, &buffer[1], OPERATION_REPORT_LEN);
-                break;
-            }
-            case (HID_ID_BLKFRREP + 0x10 * TLID): {
-                ffb_effect_t* e = &g_effect_pool[buffer[1] - 1];
-                memset(e, 0, sizeof(ffb_effect_t));
-                break;
-            }
-            case (HID_ID_EFFREP + 0x10 * TLID): {
-                memcpy(g_effect_pool[buffer[1] - 1].effect_report_raw, &buffer[1], EFFECT_REPORT_LEN);
-                break;
-            }
-            case (HID_ID_CONDREP + 0x10 * TLID): {
-                memcpy(g_effect_pool[buffer[1] - 1].condition_report_raw, &buffer[1], CONDITION_REPORT_LEN);
-                break;
-            }
-            default: {
-                ESP_EARLY_LOGI(TAG, "Unimplemented SET_REPORT HID_REPORT_TYPE_OUTPUT: %d", buffer[0]);
-                break;
-            }
-        }
+        ffb_set_output(buffer);
     }
-    portEXIT_CRITICAL_ISR(&ffb_spinlock);
 }
 
 void tud_suspend_cb(bool remote_wakeup_en) {
@@ -238,7 +147,7 @@ void tud_resume_cb(void) {
     suspended = false;
 }
 
-void usb_task(void* arg) {
+static void usb_task(void* arg) {
     ESP_LOGI(TAG, "USB initialization");
     tinyusb_config_t tusb_cfg = TINYUSB_DEFAULT_CONFIG();
     // tusb_cfg.descriptor.device = NULL;
@@ -252,10 +161,8 @@ void usb_task(void* arg) {
     ESP_ERROR_CHECK(tinyusb_driver_install(&tusb_cfg));
     ESP_LOGI(TAG, "USB initialization DONE");
 
-    TickType_t last = xTaskGetTickCount();
     for (;;) {
-        vTaskDelayUntil(&last, pdMS_TO_TICKS(1));
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        xTaskNotifyWait(0, 0xFFFFFFFF, NULL, portMAX_DELAY);
         if (!(tud_mounted() && tud_hid_ready())) {
             continue;
         }
@@ -268,9 +175,12 @@ void usb_task(void* arg) {
                                     .slider = (uint32_t)JOYSTIC_AXIS_LOGICAL_MID,
                                     .dial = (uint32_t)JOYSTIC_AXIS_LOGICAL_MID,
                                     .pov = 8};
-        float wheel_rad = g_wheel_rad;
+        float wheel_rad;
+        foc_output(&wheel_rad);
         float wheel_rad_clamped = wheel_rad > WHEEL_HALF ? WHEEL_HALF : (wheel_rad < -WHEEL_HALF ? -WHEEL_HALF : wheel_rad);
         joy.axis_x = JOYSTIC_AXIS_LOGICAL_MID + wheel_rad_clamped / WHEEL_HALF * JOYSTIC_AXIS_LOGICAL_MID;
         tud_hid_report(TLID, &joy, sizeof(hid_joystick_input_t));
     }
 }
+
+void usb_init(void) { xTaskCreate(usb_task, "usb_task", TASK_STACK_SIZE, NULL, 10, &usb_task_handle); }

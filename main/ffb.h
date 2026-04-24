@@ -7,6 +7,10 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+//******************************** FreeRTOS Configuration //********************************
+
+#define TASK_STACK_SIZE (4096)
+
 //******************************** USB JOYSTICK INPUT REPORT //********************************
 
 #define JOYSTIC_AXIS_LOGICAL_MID (16383.5f)
@@ -66,6 +70,9 @@ typedef enum { BLOCK_FREE, BLOCK_ACCLOCATED } BLOCK_STATUS;
 
 // Usage Block Load Status
 typedef enum { BLOCK_LOAD_SUCCESS = 1, BLOCK_LOAD_FULL, BLOCK_LOAD_ERROR } BLOCK_LOAD_STATUS;
+
+// Usage Device Managed Pool or Usage Shared Parameter Blocks
+typedef enum { DEVICE_MANAGED_POOL = 1, SHARED_PARAMETER_BLOCKS } POOL_TYPE;
 
 // Usage Effect Operation
 typedef enum {
@@ -154,13 +161,8 @@ typedef struct {
 
 #define FFB_EFFECT_COUNT 32
 
-extern uint8_t g_effect_type;
-extern uint8_t g_effect_block_index;
-extern uint8_t g_effect_block_status;
-extern uint8_t g_gain_device;
-extern ffb_effect_t g_effect_pool[FFB_EFFECT_COUNT];
-extern float g_damper;
-extern float g_constant_force;
-extern portMUX_TYPE ffb_spinlock;
+uint16_t ffb_get_feature(uint8_t report_id, uint8_t* buffer);
+void ffb_set_feature(uint8_t report_id, const uint8_t* buffer);
+void ffb_set_output(const uint8_t* buffer);
 
 #endif

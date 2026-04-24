@@ -5,6 +5,7 @@
  */
 
 #include "esp_simplefoc.h"
+#include "ffb.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -28,13 +29,20 @@
 
 //******************************** SimpleFOC Input //********************************
 
-extern float g_damper;
-extern float g_constant_force;
+TaskHandle_t foc_task_handle;
+
+static float g_constant_force;
+static float g_damper;
+
+extern void ffb_output(float* constant_force, float* damper);
 
 //******************************** SimpleFOC Output //********************************
 
-float g_wheel_rad;
 extern TaskHandle_t usb_task_handle;
+
+static float g_wheel_rad;
+
+void foc_output(float* wheel_rad) { *wheel_rad = g_wheel_rad; }
 
 //******************************** SimpleFOC Function //********************************
 
@@ -49,7 +57,7 @@ AS5600 as5600 = AS5600(I2C_NUM_0, WIRE_SCL, WIRE_SDA);
 BLDCMotor motor = BLDCMotor(BLDC_MOTOR_PP);
 BLDCDriver3PWM driver = BLDCDriver3PWM(MOTOR_A, MOTOR_B, MOTOR_C);
 
-void get_angle_task(void* arg) {
+static void get_angle_task(void* arg) {
     TickType_t last = xTaskGetTickCount();
     for (;;) {
         vTaskDelayUntil(&last, pdMS_TO_TICKS(1));
@@ -60,12 +68,12 @@ void get_angle_task(void* arg) {
         }
         wheel_rad_last = wheel_rad;
         g_wheel_rad = wheel_rad;
+        xTaskNotify(usb_task_handle, 0, eSetBits);
         // ESP_LOGI("FFB", "A%f", wheel_rad);
-        xTaskNotifyGive(usb_task_handle);
     }
 }
 
-void foc_task(void* arg) {
+static void foc_loop_task(void* arg) {
     // initialise magnetic sensor hardware
     as5600.init();
     // link the motor to the sensor
@@ -114,6 +122,13 @@ void foc_task(void* arg) {
         // Arduino UNO loop  ~1kHz
         // Bluepill loop ~10kHz
         motor.loopFOC();
+    }
+}
+
+static void foc_move_task(void* arg) {
+    TickType_t last = xTaskGetTickCount();
+    for (;;) {
+        vTaskDelayUntil(&last, pdMS_TO_TICKS(1));
 
         float damper = g_damper;
         float constant_force = g_constant_force;
@@ -130,4 +145,18 @@ void foc_task(void* arg) {
         // You can also use motor.move() and set the motor.target in the code
         motor.move(target_voltage);
     }
+}
+
+void foc_task(void* arg) {
+    for (;;) {
+        xTaskNotifyWait(0, 0xFFFFFFFF, NULL, portMAX_DELAY);
+        ffb_output(&g_constant_force, &g_damper);
+    }
+}
+
+void foc_init(void) {
+    xTaskCreate(get_angle_task, "get_angle_task", TASK_STACK_SIZE, NULL, 10, NULL);
+    xTaskCreate(foc_loop_task, "foc_loop_task", TASK_STACK_SIZE, NULL, 10, NULL);
+    xTaskCreate(foc_move_task, "foc_loop_task", TASK_STACK_SIZE, NULL, 10, NULL);
+    xTaskCreate(foc_task, "foc_task", TASK_STACK_SIZE, NULL, 10, &foc_task_handle);
 }
