@@ -274,7 +274,7 @@ static void example_espnow_task(void* pvParameter) {
                             .phymode = WIFI_PHY_MODE_HT20,
                             .rate = WIFI_PHY_RATE_MCS7_SGI,
                         };
-                        esp_now_set_peer_rate_config(recv_cb->mac_addr, &rate_cfg);
+                        ESP_ERROR_CHECK(esp_now_set_peer_rate_config(recv_cb->mac_addr, &rate_cfg));
                     }
 
                     /* Indicates that the device has received broadcast ESPNOW data. */
