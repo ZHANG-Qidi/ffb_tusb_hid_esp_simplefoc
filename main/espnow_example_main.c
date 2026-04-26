@@ -218,6 +218,7 @@ static void example_espnow_task(void* pvParameter) {
                         /* Start sending unicast ESPNOW data. */
                         memcpy(send_param->dest_mac, peer_mac_addr, ESP_NOW_ETH_ALEN);
                         send_param->broadcast = false;
+                        xSemaphoreGive(g_send_done_sem);
                         break;
                     }
                 }
@@ -343,10 +344,10 @@ static void example_espnow_task(void* pvParameter) {
 
 static void espnow_write_task(void* pvParameter) {
     example_espnow_send_param_t* send_param = (example_espnow_send_param_t*)pvParameter;
-    while (send_param->broadcast) {
-        vTaskDelay(pdMS_TO_TICKS(10));
-    }
     for (;;) {
+        while (send_param->broadcast) {
+            vTaskDelay(pdMS_TO_TICKS(10));
+        }
         xTaskNotifyWait(0, 0xFFFFFFFF, NULL, portMAX_DELAY);
 
         float constant_force;
