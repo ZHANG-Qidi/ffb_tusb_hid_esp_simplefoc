@@ -4,12 +4,21 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+//******************************** FreeRTOS Configuration //********************************
+
+#define TASK_STACK_SIZE (4096)
+
+//******************************** Motor Backend Configuration //********************************
+
+#define ESPNOW_BACKEND 0
+
 extern TaskHandle_t* motor_task_handle;
 extern void (*motor_output)(float* wheel_rad);
 extern void (*motor_init)(void);
 
-extern TaskHandle_t* usb_task_handle;
-extern void (*usb_init)(void);
+extern TaskHandle_t* ffb_task_handle;
+extern void (*ffb_init)(void);
+extern void (*ffb_output)(float* constant_force, float* damper);
 
 extern void interface_init(void);
 

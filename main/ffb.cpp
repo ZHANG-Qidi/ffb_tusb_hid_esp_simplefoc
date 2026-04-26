@@ -26,7 +26,7 @@ static ffb_effect_t g_effect_pool[FFB_EFFECT_COUNT];
 static float g_constant_force;
 static float g_damper;
 
-void ffb_output(float* constant_force, float* damper) {
+void tiny_usb_output(float* constant_force, float* damper) {
     *constant_force = g_constant_force;
     *damper = g_damper;
 }

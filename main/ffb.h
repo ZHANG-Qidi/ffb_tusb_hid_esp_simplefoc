@@ -7,10 +7,6 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-//******************************** FreeRTOS Configuration //********************************
-
-#define TASK_STACK_SIZE (4096)
-
 //******************************** USB JOYSTICK INPUT REPORT //********************************
 
 #define JOYSTIC_AXIS_LOGICAL_MID (16383.5f)
@@ -164,7 +160,5 @@ typedef struct {
 uint16_t ffb_get_feature(uint8_t report_id, uint8_t* buffer);
 void ffb_set_feature(uint8_t report_id, const uint8_t* buffer);
 void ffb_set_output(const uint8_t* buffer);
-
-void ffb_output(float* constant_force, float* damper);
 
 #endif

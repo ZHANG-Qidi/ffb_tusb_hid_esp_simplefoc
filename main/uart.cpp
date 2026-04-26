@@ -29,7 +29,7 @@ TaskHandle_t uart_write_task_handle;
 
 static float g_wheel_rad;
 
-void uart_output(float* wheel_rad) { *wheel_rad = g_wheel_rad; }
+void uart_backend_output(float* wheel_rad) { *wheel_rad = g_wheel_rad; }
 
 //******************************** UART Function //********************************
 
@@ -73,7 +73,7 @@ static void uart_read_task(void* arg) {
                     // ESP_LOGI(TAG, "%s", buf);
                     if (buf[0] == 'A') {
                         g_wheel_rad = strtof(&buf[1], NULL);
-                        xTaskNotify(*usb_task_handle, 0, eSetBits);
+                        xTaskNotify(*ffb_task_handle, 0, eSetBits);
                     }
                     break;
                 }
@@ -108,7 +108,7 @@ static void uart_write_task(void* arg) {
     }
 }
 
-void uart_foc_init(void) {
+void uart_backend_init(void) {
     xTaskCreate(uart_read_task, "uart_read_task", TASK_STACK_SIZE, NULL, 10, NULL);
     xTaskCreate(uart_write_task, "uart_write_task", TASK_STACK_SIZE, NULL, 10, &uart_write_task_handle);
 }

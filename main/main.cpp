@@ -12,7 +12,7 @@
 
 extern "C" void app_main(void) {
     interface_init();
-    usb_init();
+    ffb_init();
     motor_init();
     TickType_t last = xTaskGetTickCount();
     for (;;) {

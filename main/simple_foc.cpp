@@ -39,7 +39,7 @@ static float g_damper;
 
 static float g_wheel_rad;
 
-void foc_output(float* wheel_rad) { *wheel_rad = g_wheel_rad; }
+void foc_backend_output(float* wheel_rad) { *wheel_rad = g_wheel_rad; }
 
 //******************************** SimpleFOC Function //********************************
 
@@ -65,7 +65,7 @@ static void get_angle_task(void* arg) {
         }
         wheel_rad_last = wheel_rad;
         g_wheel_rad = wheel_rad;
-        xTaskNotify(*usb_task_handle, 0, eSetBits);
+        xTaskNotify(*ffb_task_handle, 0, eSetBits);
         // ESP_LOGI("FFB", "A%f", wheel_rad);
     }
 }
@@ -151,7 +151,7 @@ void foc_task(void* arg) {
     }
 }
 
-void foc_init(void) {
+void foc_backend_init(void) {
     xTaskCreate(get_angle_task, "get_angle_task", TASK_STACK_SIZE, NULL, 10, NULL);
     xTaskCreate(foc_loop_task, "foc_loop_task", TASK_STACK_SIZE, NULL, 10, NULL);
     xTaskCreate(foc_move_task, "foc_loop_task", TASK_STACK_SIZE, NULL, 10, NULL);
