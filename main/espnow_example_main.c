@@ -175,6 +175,26 @@ void example_espnow_data_prepare(example_espnow_send_param_t* send_param, uint8_
     buf->crc = esp_crc16_le(UINT16_MAX, (uint8_t const*)buf, send_param->len);
 }
 
+void dump_send_cb(example_espnow_send_param_t* send_param, example_espnow_event_send_cb_t* send_cb) {
+    ESP_LOGI(TAG,
+             "Send data to " MACSTR
+             ", status: %d"
+             ", state_local = %d, state_remote = %d",
+             MAC2STR(send_cb->mac_addr), send_cb->status, send_param->state_local, send_param->state_remote);
+}
+
+void dump_send(example_espnow_send_param_t* send_param) {
+    ESP_LOGI(TAG, "Send data to " MACSTR ", state_local = %d, state_remote = %d", MAC2STR(send_param->dest_mac), send_param->state_local, send_param->state_remote);
+}
+
+void dump_receive(example_espnow_event_recv_cb_t* recv_cb, uint16_t recv_seq, uint8_t recv_state_local, uint8_t recv_state_remote) {
+    ESP_LOGI(TAG,
+             "Receive %dth broadcast data from: " MACSTR
+             ", len: %d"
+             ", state_local = %d, state_remote = %d",
+             recv_seq, MAC2STR(recv_cb->mac_addr), recv_cb->data_len, recv_state_local, recv_state_remote);
+}
+
 static void example_espnow_task(void* pvParameter) {
     example_espnow_event_t evt;
     uint8_t recv_state_local = EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED_NOT;
@@ -188,6 +208,7 @@ static void example_espnow_task(void* pvParameter) {
 
     /* Start sending broadcast ESPNOW data. */
     example_espnow_send_param_t* send_param = (example_espnow_send_param_t*)pvParameter;
+    dump_send(send_param);
     if (esp_now_send(send_param->dest_mac, send_param->buffer, send_param->len) != ESP_OK) {
         ESP_LOGE(TAG, "Send error");
         example_espnow_deinit(send_param);
@@ -227,11 +248,10 @@ static void example_espnow_task(void* pvParameter) {
                     vTaskDelay(send_param->delay / portTICK_PERIOD_MS);
                 }
 
-                ESP_LOGI(TAG, "Send data to " MACSTR ", status: %d", MAC2STR(send_cb->mac_addr), send_cb->status);
-
                 memcpy(send_param->dest_mac, send_cb->mac_addr, ESP_NOW_ETH_ALEN);
                 example_espnow_data_prepare(send_param, NULL, 0);
 
+                dump_send_cb(send_param, send_cb);
                 /* Send the next data after the previous data is sent. */
                 if (esp_now_send(send_param->dest_mac, send_param->buffer, send_param->len) != ESP_OK) {
                     ESP_LOGE(TAG, "Send error");
@@ -250,7 +270,7 @@ static void example_espnow_task(void* pvParameter) {
                 free(recv_cb->data);
 
                 if (ret == EXAMPLE_ESPNOW_DATA_BROADCAST) {
-                    ESP_LOGI(TAG, "Receive %dth broadcast data from: " MACSTR ", len: %d", recv_seq, MAC2STR(recv_cb->mac_addr), recv_cb->data_len);
+                    dump_receive(recv_cb, recv_seq, recv_state_local, recv_state_remote);
 
                     /* If MAC address does not exist in peer list, add it to peer list. */
                     if (esp_now_is_peer_exist(recv_cb->mac_addr) == false) {
@@ -290,8 +310,7 @@ static void example_espnow_task(void* pvParameter) {
                         break;
                     }
 
-                    ESP_LOGI(TAG, "Start sending broadcast data");
-                    ESP_LOGI(TAG, "Send data to " MACSTR "", MAC2STR(s_example_broadcast_mac));
+                    ESP_LOGI(TAG, "Restart sending broadcast data");
 
                     if (send_param->state_local == EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED) {
                         send_param->state_local = EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED_NOT;
@@ -305,9 +324,11 @@ static void example_espnow_task(void* pvParameter) {
                     confirm_count = 3;
                     memcpy(peer_mac_addr, s_example_broadcast_mac, ESP_NOW_ETH_ALEN);
                     memcpy(send_param->dest_mac, s_example_broadcast_mac, ESP_NOW_ETH_ALEN);
+                    s_example_espnow_seq[EXAMPLE_ESPNOW_DATA_BROADCAST] = 0;
                     send_param->broadcast = true;
 
                     example_espnow_data_prepare(send_param, NULL, 0);
+                    dump_send(send_param);
                     if (esp_now_send(send_param->dest_mac, send_param->buffer, send_param->len) != ESP_OK) {
                         ESP_LOGE(TAG, "Send error");
                         example_espnow_deinit(send_param);
