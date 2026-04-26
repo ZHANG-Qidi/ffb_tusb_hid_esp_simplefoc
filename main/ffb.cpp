@@ -10,8 +10,8 @@ static const char* TAG = "ffb_ffb";
 
 //******************************** FFB Configuration //********************************
 
-#define MOTOR_GAIN_DAMPING (1.0f)
-#define MOTOR_GAIN_CONSTANT (0.25f)
+#define MOTOR_GAIN_DAMPING (0.5f)
+#define MOTOR_GAIN_CONSTANT (0.2f)
 #define MOTOR_DAMPING_MIN (0.1f)
 
 //******************************** FFB Private //********************************
