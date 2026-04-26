@@ -195,6 +195,10 @@ static void example_espnow_task(void* pvParameter) {
         vTaskDelete(NULL);
     }
 
+    static uint8_t confirm_count = 3;
+    static uint8_t peer_mac_addr[ESP_NOW_ETH_ALEN];
+    memcpy(peer_mac_addr, s_example_broadcast_mac, ESP_NOW_ETH_ALEN);
+
     while (xQueueReceive(s_example_espnow_queue, &evt, portMAX_DELAY) == pdTRUE) {
         switch (evt.id) {
             case EXAMPLE_ESPNOW_SEND_CB: {
@@ -203,6 +207,19 @@ static void example_espnow_task(void* pvParameter) {
                 if (send_param->broadcast == false) {
                     xSemaphoreGive(g_send_done_sem);
                     break;
+                }
+
+                if (!IS_BROADCAST_ADDR(peer_mac_addr)) {
+                    ESP_LOGI(TAG, "Sending confim data: %d", confirm_count);
+                    if (confirm_count-- == 0) {
+                        ESP_LOGI(TAG, "Start sending unicast data");
+                        ESP_LOGI(TAG, "Peer to " MACSTR "", MAC2STR(peer_mac_addr));
+
+                        /* Start sending unicast ESPNOW data. */
+                        memcpy(send_param->dest_mac, peer_mac_addr, ESP_NOW_ETH_ALEN);
+                        send_param->broadcast = false;
+                        break;
+                    }
                 }
 
                 /* Delay a while before sending the next broadcast data. */
@@ -259,12 +276,7 @@ static void example_espnow_task(void* pvParameter) {
                     }
 
                     if (recv_state_local == EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED && recv_state_remote == EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED) {
-                        ESP_LOGI(TAG, "Start sending unicast data");
-                        ESP_LOGI(TAG, "Peer to " MACSTR "", MAC2STR(recv_cb->mac_addr));
-
-                        /* Start sending unicast ESPNOW data. */
-                        memcpy(send_param->dest_mac, recv_cb->mac_addr, ESP_NOW_ETH_ALEN);
-                        send_param->broadcast = false;
+                        memcpy(peer_mac_addr, recv_cb->mac_addr, ESP_NOW_ETH_ALEN);
                         break;
                     }
 
@@ -290,6 +302,8 @@ static void example_espnow_task(void* pvParameter) {
                     }
 
                     /* Start sending broadcast ESPNOW data. */
+                    confirm_count = 3;
+                    memcpy(peer_mac_addr, s_example_broadcast_mac, ESP_NOW_ETH_ALEN);
                     memcpy(send_param->dest_mac, s_example_broadcast_mac, ESP_NOW_ETH_ALEN);
                     send_param->broadcast = true;
 
