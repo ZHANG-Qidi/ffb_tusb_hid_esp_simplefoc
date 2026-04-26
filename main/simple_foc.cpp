@@ -5,7 +5,6 @@
  */
 
 #include "esp_simplefoc.h"
-#include "ffb.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "interface.h"
@@ -19,9 +18,9 @@
 #define VOLTAGE_SENSOR_ALIGN (3.0f)
 #define DAMPING_MAX_VELOCITY (6.0f * PI)
 
-#define MOTOR_A (9)
-#define MOTOR_B (10)
-#define MOTOR_C (11)
+#define MOTOR_A (GPIO_NUM_9)
+#define MOTOR_B (GPIO_NUM_10)
+#define MOTOR_C (GPIO_NUM_11)
 
 #define WIRE_SDA (GPIO_NUM_13)
 #define WIRE_SCL (GPIO_NUM_14)

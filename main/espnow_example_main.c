@@ -26,7 +26,6 @@
 #include "esp_random.h"
 #include "esp_wifi.h"
 #include "espnow_example.h"
-#include "ffb.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/timers.h"
@@ -127,7 +126,8 @@ static void example_espnow_recv_cb(const esp_now_recv_info_t* recv_info, const u
 }
 
 /* Parse received ESPNOW data. */
-int example_espnow_data_parse(uint8_t* data, uint16_t data_len, uint8_t* state, uint16_t* seq, uint32_t* magic, uint8_t* payload, uint16_t* payload_len) {
+int example_espnow_data_parse(uint8_t* data, uint16_t data_len, uint8_t* state_local, uint8_t* state_remote, uint16_t* seq, uint32_t* magic, uint8_t* payload,
+                              uint16_t* payload_len) {
     example_espnow_data_t* buf = (example_espnow_data_t*)data;
     uint16_t crc, crc_cal = 0;
 
@@ -136,7 +136,8 @@ int example_espnow_data_parse(uint8_t* data, uint16_t data_len, uint8_t* state, 
         return -1;
     }
 
-    *state = buf->state;
+    *state_local = buf->state_local;
+    *state_remote = buf->state_remote;
     *seq = buf->seq_num;
     crc = buf->crc;
     buf->crc = 0;
@@ -159,7 +160,8 @@ void example_espnow_data_prepare(example_espnow_send_param_t* send_param, uint8_
     assert(send_param->len >= sizeof(example_espnow_data_t));
 
     buf->type = IS_BROADCAST_ADDR(send_param->dest_mac) ? EXAMPLE_ESPNOW_DATA_BROADCAST : EXAMPLE_ESPNOW_DATA_UNICAST;
-    buf->state = send_param->state;
+    buf->state_local = send_param->state_local;
+    buf->state_remote = send_param->state_remote;
     buf->seq_num = s_example_espnow_seq[buf->type]++;
     buf->crc = 0;
 
@@ -175,7 +177,8 @@ void example_espnow_data_prepare(example_espnow_send_param_t* send_param, uint8_
 
 static void example_espnow_task(void* pvParameter) {
     example_espnow_event_t evt;
-    uint8_t recv_state = 0;
+    uint8_t recv_state_local = EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED_NOT;
+    uint8_t recv_state_remote = EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED_NOT;
     uint16_t recv_seq = 0;
     uint32_t recv_magic = 0;
     // bool is_broadcast = false;
@@ -207,7 +210,7 @@ static void example_espnow_task(void* pvParameter) {
                     vTaskDelay(send_param->delay / portTICK_PERIOD_MS);
                 }
 
-                ESP_LOGI(TAG, "Send data to " MACSTR ", status1: %d", MAC2STR(send_cb->mac_addr), send_cb->status);
+                ESP_LOGI(TAG, "Send data to " MACSTR ", status: %d", MAC2STR(send_cb->mac_addr), send_cb->status);
 
                 memcpy(send_param->dest_mac, send_cb->mac_addr, ESP_NOW_ETH_ALEN);
                 example_espnow_data_prepare(send_param, NULL, 0);
@@ -226,7 +229,7 @@ static void example_espnow_task(void* pvParameter) {
                 uint8_t payload[CONFIG_ESPNOW_SEND_LEN];
                 uint16_t payload_len;
 
-                ret = example_espnow_data_parse(recv_cb->data, recv_cb->data_len, &recv_state, &recv_seq, &recv_magic, payload, &payload_len);
+                ret = example_espnow_data_parse(recv_cb->data, recv_cb->data_len, &recv_state_local, &recv_state_remote, &recv_seq, &recv_magic, payload, &payload_len);
                 free(recv_cb->data);
 
                 if (ret == EXAMPLE_ESPNOW_DATA_BROADCAST) {
@@ -251,43 +254,50 @@ static void example_espnow_task(void* pvParameter) {
                     }
 
                     /* Indicates that the device has received broadcast ESPNOW data. */
-                    if (send_param->state == EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED_NOT) {
-                        send_param->state = EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED;
+                    if (send_param->state_local == EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED_NOT) {
+                        send_param->state_local = EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED;
                     }
 
-                    if (recv_state == EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED_NOT) {
-                        if (send_param->broadcast) {
-                            break;
-                        }
-
-                        ESP_LOGI(TAG, "Start sending broadcast data");
-                        ESP_LOGI(TAG, "send data to " MACSTR "", MAC2STR(s_example_broadcast_mac));
-
-                        if (send_param->state == EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED) {
-                            send_param->state = EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED_NOT;
-                        }
-
-                        /* Start sending broadcast ESPNOW data. */
-                        memcpy(send_param->dest_mac, s_example_broadcast_mac, ESP_NOW_ETH_ALEN);
-                        send_param->broadcast = true;
-
-                        example_espnow_data_prepare(send_param, NULL, 0);
-                        if (esp_now_send(send_param->dest_mac, send_param->buffer, send_param->len) != ESP_OK) {
-                            ESP_LOGE(TAG, "Send error");
-                            example_espnow_deinit(send_param);
-                            vTaskDelete(NULL);
-                        }
-                        break;
-                    }
-
-                    if (recv_state == EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED) {
+                    if (recv_state_local == EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED && recv_state_remote == EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED) {
                         ESP_LOGI(TAG, "Start sending unicast data");
-                        ESP_LOGI(TAG, "send data to " MACSTR "", MAC2STR(recv_cb->mac_addr));
+                        ESP_LOGI(TAG, "Peer to " MACSTR "", MAC2STR(recv_cb->mac_addr));
 
                         /* Start sending unicast ESPNOW data. */
                         memcpy(send_param->dest_mac, recv_cb->mac_addr, ESP_NOW_ETH_ALEN);
                         send_param->broadcast = false;
                         break;
+                    }
+
+                    if (recv_state_local == EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED) {
+                        if (send_param->state_remote == EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED_NOT) {
+                            send_param->state_remote = EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED;
+                        }
+                    }
+
+                    if (send_param->broadcast) {
+                        break;
+                    }
+
+                    ESP_LOGI(TAG, "Start sending broadcast data");
+                    ESP_LOGI(TAG, "Send data to " MACSTR "", MAC2STR(s_example_broadcast_mac));
+
+                    if (send_param->state_local == EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED) {
+                        send_param->state_local = EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED_NOT;
+                    }
+
+                    if (send_param->state_remote == EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED) {
+                        send_param->state_remote = EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED_NOT;
+                    }
+
+                    /* Start sending broadcast ESPNOW data. */
+                    memcpy(send_param->dest_mac, s_example_broadcast_mac, ESP_NOW_ETH_ALEN);
+                    send_param->broadcast = true;
+
+                    example_espnow_data_prepare(send_param, NULL, 0);
+                    if (esp_now_send(send_param->dest_mac, send_param->buffer, send_param->len) != ESP_OK) {
+                        ESP_LOGE(TAG, "Send error");
+                        example_espnow_deinit(send_param);
+                        vTaskDelete(NULL);
                     }
                 } else if (ret == EXAMPLE_ESPNOW_DATA_UNICAST) {
                     // ESP_LOGI(TAG, "Receive %dth unicast data from: " MACSTR ", len: %d", recv_seq, MAC2STR(recv_cb->mac_addr), recv_cb->data_len);
@@ -401,7 +411,8 @@ static esp_err_t example_espnow_init(void) {
     }
     memset(send_param, 0, sizeof(example_espnow_send_param_t));
     send_param->broadcast = true;
-    send_param->state = 0;
+    send_param->state_local = EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED_NOT;
+    send_param->state_remote = EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED_NOT;
     send_param->delay = CONFIG_ESPNOW_SEND_DELAY;
     send_param->len = CONFIG_ESPNOW_SEND_LEN;
     send_param->buffer = malloc(CONFIG_ESPNOW_SEND_LEN);
