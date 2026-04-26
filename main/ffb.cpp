@@ -11,7 +11,8 @@ static const char* TAG = "ffb_ffb";
 //******************************** FFB Configuration //********************************
 
 #define MOTOR_GAIN_DAMPING (1.0f)
-#define MOTOR_GAIN_CONSTANT (0.2f)
+#define MOTOR_GAIN_CONSTANT (0.25f)
+#define MOTOR_DAMPING_MIN (0.1f)
 
 //******************************** FFB Private //********************************
 
@@ -24,7 +25,7 @@ static ffb_effect_t g_effect_pool[FFB_EFFECT_COUNT];
 //******************************** FFB Output //********************************
 
 static float g_constant_force;
-static float g_damper;
+static float g_damper = MOTOR_DAMPING_MIN;
 
 void tiny_usb_output(float* constant_force, float* damper) {
     *constant_force = g_constant_force;
@@ -58,7 +59,7 @@ void ffb_mixer(void) {
             }
             case ET_DAMPER_DR2: {
                 float damper = (float)g_effect_pool[i].condition_report.positive_coefficient / (float)g_effect_pool[i].condition_report.positive_saturation * MOTOR_GAIN_DAMPING;
-                g_damper = damper < 0.1f ? 0.1f : damper;
+                g_damper = damper < MOTOR_DAMPING_MIN ? MOTOR_DAMPING_MIN : damper;
                 break;
             }
             default: {
