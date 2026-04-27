@@ -56,26 +56,32 @@ enum {
     EXAMPLE_ESPNOW_DATA_MAX,
 };
 
-enum {
+typedef enum {
     EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED_NOT,
     EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED,
-};
+} bc_state_t;
+
+typedef enum {
+    BS_BROADCASTING,
+    BS_CONFIRMING,
+    BS_UNICAST,
+} broadcast_state_t;
+
+#define BS_CONFIRMING_COUNT (3)
 
 /* User defined field of ESPNOW data in this example. */
 typedef struct {
-    uint8_t type;          // Broadcast or unicast ESPNOW data.
-    uint8_t state_local;   // Indicate that if has received broadcast ESPNOW data or not.
-    uint8_t state_remote;  // Indicate that if has received broadcast ESPNOW data or not.
-    uint16_t seq_num;      // Sequence number of ESPNOW data.
-    uint16_t crc;          // CRC16 value of ESPNOW data.
-    uint8_t payload[0];    // Real payload of ESPNOW data.
+    uint8_t type;        // Broadcast or unicast ESPNOW data.
+    uint8_t state;       // Indicate that if has received broadcast ESPNOW data or not.
+    uint16_t seq_num;    // Sequence number of ESPNOW data.
+    uint16_t crc;        // CRC16 value of ESPNOW data.
+    uint8_t payload[0];  // Real payload of ESPNOW data.
 } __attribute__((packed)) example_espnow_data_t;
 
 /* Parameters of sending ESPNOW data. */
 typedef struct {
-    bool broadcast;                      // Send broadcast ESPNOW data.
-    uint8_t state_local;                 // Indicate that if has received broadcast ESPNOW data or not.
-    uint8_t state_remote;                // Indicate that if has received broadcast ESPNOW data or not.
+    broadcast_state_t broadcast;         // Send broadcast ESPNOW data.
+    uint8_t state;                       // Indicate that if has received broadcast ESPNOW data or not.
     uint16_t delay;                      // Delay between sending two ESPNOW data, unit: ms.
     int len;                             // Length of ESPNOW data to be sent, unit: byte.
     uint8_t* buffer;                     // Buffer pointing to ESPNOW data.

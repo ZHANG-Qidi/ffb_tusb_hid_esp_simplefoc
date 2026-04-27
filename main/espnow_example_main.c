@@ -126,8 +126,7 @@ static void example_espnow_recv_cb(const esp_now_recv_info_t* recv_info, const u
 }
 
 /* Parse received ESPNOW data. */
-int example_espnow_data_parse(uint8_t* data, uint16_t data_len, uint8_t* state_local, uint8_t* state_remote, uint16_t* seq, uint32_t* magic, uint8_t* payload,
-                              uint16_t* payload_len) {
+int example_espnow_data_parse(uint8_t* data, uint16_t data_len, uint8_t* state, uint16_t* seq, uint32_t* magic, uint8_t* payload, uint16_t* payload_len) {
     example_espnow_data_t* buf = (example_espnow_data_t*)data;
     uint16_t crc, crc_cal = 0;
 
@@ -136,8 +135,7 @@ int example_espnow_data_parse(uint8_t* data, uint16_t data_len, uint8_t* state_l
         return -1;
     }
 
-    *state_local = buf->state_local;
-    *state_remote = buf->state_remote;
+    *state = buf->state;
     *seq = buf->seq_num;
     crc = buf->crc;
     buf->crc = 0;
@@ -160,8 +158,7 @@ void example_espnow_data_prepare(example_espnow_send_param_t* send_param, uint8_
     assert(send_param->len >= sizeof(example_espnow_data_t));
 
     buf->type = IS_BROADCAST_ADDR(send_param->dest_mac) ? EXAMPLE_ESPNOW_DATA_BROADCAST : EXAMPLE_ESPNOW_DATA_UNICAST;
-    buf->state_local = send_param->state_local;
-    buf->state_remote = send_param->state_remote;
+    buf->state = send_param->state;
     buf->seq_num = s_example_espnow_seq[buf->type]++;
     buf->crc = 0;
 
@@ -177,27 +174,42 @@ void example_espnow_data_prepare(example_espnow_send_param_t* send_param, uint8_
 
 void dump_send_cb(example_espnow_send_param_t* send_param, example_espnow_event_send_cb_t* send_cb) {
     ESP_LOGI(TAG,
+             "Send to      "
              "MAC: " MACSTR
-             ", state_local = %d, state_remote = %d"
-             ", status: %d"
-             ", Send to",
-             MAC2STR(send_cb->mac_addr), send_param->state_local, send_param->state_remote, send_cb->status);
+             ", state = %d"
+             ", status: %d",
+             MAC2STR(send_cb->mac_addr), send_param->state, send_cb->status);
 }
 
-void dump_receive_cb(example_espnow_event_recv_cb_t* recv_cb, uint16_t recv_seq, uint8_t recv_state_local, uint8_t recv_state_remote) {
+void dump_receive_cb(example_espnow_event_recv_cb_t* recv_cb, uint16_t recv_seq, uint8_t recv_state) {
     ESP_LOGI(TAG,
+             "Receive from "
              "MAC: " MACSTR
-             ", state_local = %d, state_remote = %d"
+             ", state = %d"
              ", len: %d"
-             ", %dth broadcast data"
-             ", Receive from",
-             MAC2STR(recv_cb->mac_addr), recv_state_local, recv_state_remote, recv_cb->data_len, recv_seq);
+             ", %dth broadcast data",
+             MAC2STR(recv_cb->mac_addr), recv_state, recv_cb->data_len, recv_seq);
 }
 
+void send_next_broadcast(example_espnow_send_param_t* send_param, example_espnow_event_send_cb_t* send_cb) {
+    /* Delay a while before sending the next broadcast data. */
+    if (send_param->delay > 0) {
+        vTaskDelay(send_param->delay / portTICK_PERIOD_MS);
+    }
+
+    memcpy(send_param->dest_mac, send_cb->mac_addr, ESP_NOW_ETH_ALEN);
+    example_espnow_data_prepare(send_param, NULL, 0);
+
+    /* Send the next data after the previous data is sent. */
+    if (esp_now_send(send_param->dest_mac, send_param->buffer, send_param->len) != ESP_OK) {
+        ESP_LOGE(TAG, "Send error");
+        example_espnow_deinit(send_param);
+        vTaskDelete(NULL);
+    }
+}
 static void example_espnow_task(void* pvParameter) {
     example_espnow_event_t evt;
-    uint8_t recv_state_local = EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED_NOT;
-    uint8_t recv_state_remote = EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED_NOT;
+    uint8_t recv_state = EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED_NOT;
     uint16_t recv_seq = 0;
     uint32_t recv_magic = 0;
     bool is_broadcast = false;
@@ -214,7 +226,7 @@ static void example_espnow_task(void* pvParameter) {
         vTaskDelete(NULL);
     }
 
-    static uint8_t confirm_count = 3;
+    static uint8_t confirm_count = BS_CONFIRMING_COUNT;
     static uint8_t peer_mac_addr[ESP_NOW_ETH_ALEN];
     memcpy(peer_mac_addr, s_example_broadcast_mac, ESP_NOW_ETH_ALEN);
 
@@ -226,41 +238,38 @@ static void example_espnow_task(void* pvParameter) {
 
                 if (is_broadcast) {
                     dump_send_cb(send_param, send_cb);
-                }
+                    switch (send_param->broadcast) {
+                        case (BS_BROADCASTING): {
+                            send_next_broadcast(send_param, send_cb);
+                            break;
+                        }
+                        case (BS_CONFIRMING): {
+                            if (confirm_count-- == 0) {
+                                ESP_LOGI(TAG, "Start sending unicast data");
+                                ESP_LOGI(TAG, "Peer to " MACSTR "", MAC2STR(peer_mac_addr));
 
-                if (send_param->broadcast == false) {
-                    xSemaphoreGive(g_send_done_sem);
-                    break;
-                }
-
-                if (!IS_BROADCAST_ADDR(peer_mac_addr)) {
-                    ESP_LOGI(TAG, "Sending confim data: %d", confirm_count);
-                    if (confirm_count-- == 0) {
-                        ESP_LOGI(TAG, "Start sending unicast data");
-                        ESP_LOGI(TAG, "Peer to " MACSTR "", MAC2STR(peer_mac_addr));
-
-                        /* Start sending unicast ESPNOW data. */
-                        memcpy(peer_mac_addr, s_example_broadcast_mac, ESP_NOW_ETH_ALEN);
-                        memcpy(send_param->dest_mac, peer_mac_addr, ESP_NOW_ETH_ALEN);
-                        send_param->broadcast = false;
-                        xSemaphoreGive(g_send_done_sem);
-                        break;
+                                /* Start sending unicast ESPNOW data. */
+                                send_param->broadcast = BS_UNICAST;
+                                send_param->state = EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED;
+                                memcpy(send_param->dest_mac, peer_mac_addr, ESP_NOW_ETH_ALEN);
+                                example_espnow_data_prepare(send_param, NULL, 0);
+                                if (esp_now_send(send_param->dest_mac, send_param->buffer, send_param->len) != ESP_OK) {
+                                    ESP_LOGE(TAG, "Send error");
+                                    example_espnow_deinit(send_param);
+                                    vTaskDelete(NULL);
+                                }
+                            } else {
+                                ESP_LOGI(TAG, "Sending confim data: %d", confirm_count);
+                                send_next_broadcast(send_param, send_cb);
+                            }
+                            break;
+                        }
+                        default: {
+                            break;
+                        }
                     }
-                }
-
-                /* Delay a while before sending the next broadcast data. */
-                if (send_param->delay > 0) {
-                    vTaskDelay(send_param->delay / portTICK_PERIOD_MS);
-                }
-
-                memcpy(send_param->dest_mac, send_cb->mac_addr, ESP_NOW_ETH_ALEN);
-                example_espnow_data_prepare(send_param, NULL, 0);
-
-                /* Send the next data after the previous data is sent. */
-                if (esp_now_send(send_param->dest_mac, send_param->buffer, send_param->len) != ESP_OK) {
-                    ESP_LOGE(TAG, "Send error");
-                    example_espnow_deinit(send_param);
-                    vTaskDelete(NULL);
+                } else {
+                    xSemaphoreGive(g_send_done_sem);
                 }
                 break;
             }
@@ -270,11 +279,11 @@ static void example_espnow_task(void* pvParameter) {
                 uint8_t payload[CONFIG_ESPNOW_SEND_LEN];
                 uint16_t payload_len;
 
-                ret = example_espnow_data_parse(recv_cb->data, recv_cb->data_len, &recv_state_local, &recv_state_remote, &recv_seq, &recv_magic, payload, &payload_len);
+                ret = example_espnow_data_parse(recv_cb->data, recv_cb->data_len, &recv_state, &recv_seq, &recv_magic, payload, &payload_len);
                 free(recv_cb->data);
 
                 if (ret == EXAMPLE_ESPNOW_DATA_BROADCAST) {
-                    dump_receive_cb(recv_cb, recv_seq, recv_state_local, recv_state_remote);
+                    dump_receive_cb(recv_cb, recv_seq, recv_state);
 
                     /* If MAC address does not exist in peer list, add it to peer list. */
                     if (esp_now_is_peer_exist(recv_cb->mac_addr) == false) {
@@ -295,59 +304,48 @@ static void example_espnow_task(void* pvParameter) {
                     }
 
                     /* Indicates that the device has received broadcast ESPNOW data. */
-                    if (send_param->state_local == EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED_NOT) {
-                        send_param->state_local = EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED;
+                    if (send_param->state == EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED_NOT) {
+                        send_param->state = EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED;
                     }
 
-                    if (recv_state_local == EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED) {
-                        if (send_param->state_remote == EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED_NOT) {
-                            send_param->state_remote = EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED;
-                        }
-                    }
-
-                    if (recv_state_local == EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED && recv_state_remote == EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED) {
-                        if (IS_BROADCAST_ADDR(peer_mac_addr)) {
+                    if (recv_state == EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED) {
+                        if (send_param->broadcast == BS_BROADCASTING) {
+                            send_param->broadcast = BS_CONFIRMING;
                             memcpy(peer_mac_addr, recv_cb->mac_addr, ESP_NOW_ETH_ALEN);
                         }
-                        break;
                     }
 
-                    if (send_param->broadcast) {
-                        break;
+                    if (recv_state == EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED_NOT) {
+                        if (send_param->broadcast != BS_BROADCASTING) {
+                            ESP_LOGI(TAG, "Restart sending broadcast data");
+
+                            confirm_count = BS_CONFIRMING_COUNT;
+                            s_example_espnow_seq[EXAMPLE_ESPNOW_DATA_BROADCAST] = 0;
+
+                            /* Start sending broadcast ESPNOW data. */
+                            send_param->broadcast = BS_BROADCASTING;
+                            send_param->state = EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED;
+                            memcpy(send_param->dest_mac, s_example_broadcast_mac, ESP_NOW_ETH_ALEN);
+                            example_espnow_data_prepare(send_param, NULL, 0);
+                            if (esp_now_send(send_param->dest_mac, send_param->buffer, send_param->len) != ESP_OK) {
+                                ESP_LOGE(TAG, "Send error");
+                                example_espnow_deinit(send_param);
+                                vTaskDelete(NULL);
+                            }
+                        }
                     }
 
-                    ESP_LOGI(TAG, "Restart sending broadcast data");
-
-                    if (send_param->state_local == EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED) {
-                        send_param->state_local = EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED_NOT;
-                    }
-
-                    if (send_param->state_remote == EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED) {
-                        send_param->state_remote = EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED_NOT;
-                    }
-
-                    /* Start sending broadcast ESPNOW data. */
-                    confirm_count = 3;
-                    memcpy(peer_mac_addr, s_example_broadcast_mac, ESP_NOW_ETH_ALEN);
-                    memcpy(send_param->dest_mac, s_example_broadcast_mac, ESP_NOW_ETH_ALEN);
-                    s_example_espnow_seq[EXAMPLE_ESPNOW_DATA_BROADCAST] = 0;
-                    send_param->broadcast = true;
-
-                    example_espnow_data_prepare(send_param, NULL, 0);
-                    if (esp_now_send(send_param->dest_mac, send_param->buffer, send_param->len) != ESP_OK) {
-                        ESP_LOGE(TAG, "Send error");
-                        example_espnow_deinit(send_param);
-                        vTaskDelete(NULL);
-                    }
                 } else if (ret == EXAMPLE_ESPNOW_DATA_UNICAST) {
                     // ESP_LOGI(TAG, "Receive %dth unicast data from: " MACSTR ", len: %d", recv_seq, MAC2STR(recv_cb->mac_addr), recv_cb->data_len);
                     // ESP_LOGI(TAG, "payload: %s", payload);
 
-                    if (send_param->broadcast) {
+                    if (send_param->broadcast != BS_UNICAST) {
+                        ESP_LOGI(TAG, "Receive unicast data without BS_UNICAST");
+                        ESP_LOGI(TAG, "Peer to " MACSTR "", MAC2STR(recv_cb->mac_addr));
                         /* Start sending unicast ESPNOW data. */
                         memcpy(send_param->dest_mac, recv_cb->mac_addr, ESP_NOW_ETH_ALEN);
                         /* If receive unicast ESPNOW data, also stop sending broadcast ESPNOW data. */
-                        send_param->broadcast = false;
+                        send_param->broadcast = BS_UNICAST;
                     }
 
                     if (payload[0] == 'A') {
@@ -450,9 +448,8 @@ static esp_err_t example_espnow_init(void) {
         return ESP_FAIL;
     }
     memset(send_param, 0, sizeof(example_espnow_send_param_t));
-    send_param->broadcast = true;
-    send_param->state_local = EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED_NOT;
-    send_param->state_remote = EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED_NOT;
+    send_param->broadcast = BS_BROADCASTING;
+    send_param->state = EXAMPLE_ESPNOW_DATA_BROADCAST_RECEIVED_NOT;
     send_param->delay = CONFIG_ESPNOW_SEND_DELAY;
     send_param->len = CONFIG_ESPNOW_SEND_LEN;
     send_param->buffer = malloc(CONFIG_ESPNOW_SEND_LEN);
