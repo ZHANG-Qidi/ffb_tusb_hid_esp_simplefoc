@@ -14,6 +14,7 @@ extern "C" void app_main(void) {
     interface_init();
     ffb_init();
     motor_init();
+
     TickType_t last = xTaskGetTickCount();
     for (;;) {
         vTaskDelayUntil(&last, pdMS_TO_TICKS(10));

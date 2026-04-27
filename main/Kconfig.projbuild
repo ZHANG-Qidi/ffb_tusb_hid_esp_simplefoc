@@ -6,8 +6,8 @@ menu "FFB Master UART Configuration"
         int "UART port number"
         range 0 2 if IDF_TARGET_ESP32 || IDF_TARGET_ESP32S3
         default 2 if IDF_TARGET_ESP32 || IDF_TARGET_ESP32S3
-        range 0 1
-        default 1
+        range 0 1 if IDF_TARGET_ESP32S2
+        default 1 if IDF_TARGET_ESP32S2
         help
             UART communication port number for the FFB.
             See UART documentation for available port numbers.
@@ -22,10 +22,8 @@ menu "FFB Master UART Configuration"
     config FFB_UART_RXD
         int "UART RXD pin number"
         range ENV_GPIO_RANGE_MIN ENV_GPIO_IN_RANGE_MAX
-        default 22 if IDF_TARGET_ESP32
-        default 17 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
-        default 14 if !IDF_TARGET_ESP32H4
-        default 15 if IDF_TARGET_ESP32H4
+        default 16 if IDF_TARGET_ESP32
+        default 18 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
         help
             GPIO number for UART RX pin. See UART documentation for more information
             about available pin numbers for UART.
@@ -33,10 +31,8 @@ menu "FFB Master UART Configuration"
     config FFB_UART_TXD
         int "UART TXD pin number"
         range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
-        default 23 if IDF_TARGET_ESP32
-        default 18 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
-        default 13 if !IDF_TARGET_ESP32H4
-        default 16 if IDF_TARGET_ESP32H4
+        default 17 if IDF_TARGET_ESP32
+        default 17 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
         help
             GPIO number for UART TX pin. See UART documentation for more information
             about available pin numbers for UART.
@@ -47,6 +43,52 @@ menu "FFB Master UART Configuration"
         default 4096
         help
             Defines stack size for FFB UART. Insufficient stack size can cause crash.
+
+endmenu
+
+menu "Simple FOCConfiguration"
+
+    orsource "$IDF_PATH/examples/common_components/env_caps/$IDF_TARGET/Kconfig.env_caps"
+
+    config MOTOR_A
+        int "MOTOR_A pin number"
+        range ENV_GPIO_RANGE_MIN ENV_GPIO_IN_RANGE_MAX
+        default 14 if IDF_TARGET_ESP32
+        default 12 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
+        help
+            GPIO number for MOTOR_A
+
+    config MOTOR_B
+        int "MOTOR_B pin number"
+        range ENV_GPIO_RANGE_MIN ENV_GPIO_IN_RANGE_MAX
+        default 12 if IDF_TARGET_ESP32
+        default 13 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
+        help
+            GPIO number for MOTOR_B
+
+    config MOTOR_C
+        int "MOTOR_C pin number"
+        range ENV_GPIO_RANGE_MIN ENV_GPIO_IN_RANGE_MAX
+        default 13 if IDF_TARGET_ESP32
+        default 14 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
+        help
+            GPIO number for MOTOR_C
+            
+    config IIC_SCL
+        int "IIC_SCL pin number"
+        range ENV_GPIO_RANGE_MIN ENV_GPIO_IN_RANGE_MAX
+        default 22 if IDF_TARGET_ESP32
+        default 1 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
+        help
+            GPIO number for IIC_SCL
+
+    config IIC_SDA
+        int "IIC_SDA pin number"
+        range ENV_GPIO_RANGE_MIN ENV_GPIO_IN_RANGE_MAX
+        default 21 if IDF_TARGET_ESP32
+        default 2 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
+        help
+            GPIO number for IIC_SDA
 
 endmenu
 
