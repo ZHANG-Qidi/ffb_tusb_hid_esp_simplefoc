@@ -88,4 +88,13 @@ typedef struct {
     uint8_t dest_mac[ESP_NOW_ETH_ALEN];  // MAC address of destination device.
 } example_espnow_send_param_t;
 
+typedef struct {
+    float constant_force;
+    float damper;
+} __attribute__((packed)) ffb_output_t;
+
+typedef struct {
+    float wheel_rad;
+} __attribute__((packed)) motor_output_t;
+
 #endif

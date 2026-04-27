@@ -12,7 +12,7 @@
 
 #define MOTOR_DAMPING_MIN (0.1f)
 
-#define ESPNOW_BACKEND 0
+#define ESPNOW_BACKEND 1
 
 extern TaskHandle_t* motor_task_handle;
 extern void (*motor_output)(float* wheel_rad);
