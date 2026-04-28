@@ -1,7 +1,5 @@
 menu "FFB Master UART Configuration"
-
     orsource "$IDF_PATH/examples/common_components/env_caps/$IDF_TARGET/Kconfig.env_caps"
-
     config FFB_UART_PORT_NUM
         int "UART port number"
         range 0 2 if IDF_TARGET_ESP32 || IDF_TARGET_ESP32S3
@@ -11,14 +9,12 @@ menu "FFB Master UART Configuration"
         help
             UART communication port number for the FFB.
             See UART documentation for available port numbers.
-
     config FFB_UART_BAUD_RATE
         int "UART communication speed"
         range 1200 921600
         default 921600
         help
             UART communication speed.
-
     config FFB_UART_RXD
         int "UART RXD pin number"
         range ENV_GPIO_RANGE_MIN ENV_GPIO_IN_RANGE_MAX
@@ -27,7 +23,6 @@ menu "FFB Master UART Configuration"
         help
             GPIO number for UART RX pin. See UART documentation for more information
             about available pin numbers for UART.
-
     config FFB_UART_TXD
         int "UART TXD pin number"
         range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
@@ -36,20 +31,15 @@ menu "FFB Master UART Configuration"
         help
             GPIO number for UART TX pin. See UART documentation for more information
             about available pin numbers for UART.
-
     config FFB_UART_TASK_STACK_SIZE
         int "FFB UART task stack size"
         range 1024 16384
         default 4096
         help
             Defines stack size for FFB UART. Insufficient stack size can cause crash.
-
 endmenu
-
 menu "Simple FOCConfiguration"
-
     orsource "$IDF_PATH/examples/common_components/env_caps/$IDF_TARGET/Kconfig.env_caps"
-
     config MOTOR_A
         int "MOTOR_A pin number"
         range ENV_GPIO_RANGE_MIN ENV_GPIO_IN_RANGE_MAX
@@ -57,7 +47,6 @@ menu "Simple FOCConfiguration"
         default 12 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
         help
             GPIO number for MOTOR_A
-
     config MOTOR_B
         int "MOTOR_B pin number"
         range ENV_GPIO_RANGE_MIN ENV_GPIO_IN_RANGE_MAX
@@ -65,7 +54,6 @@ menu "Simple FOCConfiguration"
         default 13 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
         help
             GPIO number for MOTOR_B
-
     config MOTOR_C
         int "MOTOR_C pin number"
         range ENV_GPIO_RANGE_MIN ENV_GPIO_IN_RANGE_MAX
@@ -73,7 +61,6 @@ menu "Simple FOCConfiguration"
         default 14 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
         help
             GPIO number for MOTOR_C
-            
     config IIC_SCL
         int "IIC_SCL pin number"
         range ENV_GPIO_RANGE_MIN ENV_GPIO_IN_RANGE_MAX
@@ -81,7 +68,6 @@ menu "Simple FOCConfiguration"
         default 1 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
         help
             GPIO number for IIC_SCL
-
     config IIC_SDA
         int "IIC_SDA pin number"
         range ENV_GPIO_RANGE_MIN ENV_GPIO_IN_RANGE_MAX
@@ -89,62 +75,51 @@ menu "Simple FOCConfiguration"
         default 2 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
         help
             GPIO number for IIC_SDA
-
 endmenu
-
 menu "ESPNOW Example Configuration"
-
     choice ESPNOW_WIFI_MODE
         prompt "WiFi mode"
         default ESPNOW_WIFI_MODE_STATION
         help
             WiFi mode(station or softap).
-
         config ESPNOW_WIFI_MODE_STATION
             bool "Station"
         config ESPNOW_WIFI_MODE_STATION_SOFTAP
             bool "Softap"
     endchoice
-
     config ESPNOW_PMK
         string "ESPNOW primary master key"
         default "pmk1234567890123"
         help
             ESPNOW primary master for the example to use. The length of ESPNOW primary master must be 16 bytes.
-
     config ESPNOW_LMK
         string "ESPNOW local master key"
         default "lmk1234567890123"
         help
             ESPNOW local master for the example to use. The length of ESPNOW local master must be 16 bytes.
-
     config ESPNOW_CHANNEL
         int "Channel"
         default 1
         range 0 14
         help
             The channel on which sending and receiving ESPNOW data.
-
     config ESPNOW_SEND_DELAY
         int "Send delay"
         default 500
         range 0 65535
         help
             Delay between sending two ESPNOW data, unit: ms.
-
     config ESPNOW_SEND_LEN
         int "Send len"
         range 10 1470
         default 64
         help
             Length of ESPNOW data to be sent, unit: byte.
-
     config ESPNOW_ENABLE_LONG_RANGE
         bool "Enable Long Range"
         default "n"
         help
             When enable long range, the PHY rate of ESP32 will be 512Kbps or 256Kbps
-
     config ESPNOW_ENABLE_POWER_SAVE
         bool "Enable ESPNOW Power Save"
         default "n"
@@ -153,7 +128,6 @@ menu "ESPNOW Example Configuration"
         help
             With ESPNOW power save enabled, chip would be able to wakeup and sleep periodically
             Notice ESP_WIFI_STA_DISCONNECTED_PM_ENABLE is essential at Wi-Fi disconnected
-
     config ESPNOW_WAKE_WINDOW
         int "ESPNOW wake window, unit in millisecond"
         range 0 65535
@@ -161,7 +135,6 @@ menu "ESPNOW Example Configuration"
         depends on ESPNOW_ENABLE_POWER_SAVE
         help
             ESPNOW wake window
-
     config ESPNOW_WAKE_INTERVAL
         int "ESPNOW wake interval, unit in millisecond"
         range 1 65535
@@ -169,5 +142,4 @@ menu "ESPNOW Example Configuration"
         depends on ESPNOW_ENABLE_POWER_SAVE
         help
             ESPNOW wake interval
-
 endmenu

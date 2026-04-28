@@ -3,7 +3,6 @@
  *
  * SPDX-License-Identifier: Unlicense OR CC0-1.0
  */
-
 #include "esp_log.h"
 #include "ffb.h"
 #include "freertos/FreeRTOS.h"
@@ -12,26 +11,17 @@
 #include "interface.h"
 #include "tinyusb.h"
 #include "tinyusb_default_config.h"
-
 static const char* TAG = "ffb_usb";
-
 //******************************** tinyUSB Input //********************************
-
 TaskHandle_t tiny_usb_task_handle;
-
 //******************************** tinyUSB Output //********************************
-
 //******************************** tinyUSB Configuration //********************************
-
 /* Flag to indicate if the host has suspended the USB bus */
 static bool suspended = false;
-
 /* Flag of possibility to Wakeup Host via Remote Wakeup feature */
 static bool wakeup_host = false;
-
 /************* TinyUSB descriptors ****************/
 #define TUSB_DESC_IN_OUT_TOTAL_LEN (TUD_CONFIG_DESC_LEN + CFG_TUD_HID * TUD_HID_INOUT_DESC_LEN)
-
 /**
  * @brief String descriptor
  */
@@ -43,7 +33,6 @@ const char* hid_string_descriptor[5] = {
     "123456",                 // 3: Serials, should use chip ID
     "Example HID interface",  // 4: HID
 };
-
 /**
  * @brief Configuration descriptor
  *
@@ -56,38 +45,28 @@ static const uint8_t hid_configuration_descriptor[] = {
     // Interface number, string index, protocol, report descriptor len, EP OUT & IN address, size & polling interval
     TUD_HID_INOUT_DESCRIPTOR(0, 4, false, sizeof(G_DefaultReportDescriptor), 0x81, 0x01, 64, 1),
 };
-
 // Invoked when received GET HID REPORT DESCRIPTOR request
 // Application return pointer to descriptor, whose contents must exist long enough for transfer to complete
 uint8_t const* tud_hid_descriptor_report_cb(uint8_t instance) {
     // We use only one interface and one HID report descriptor, so we can ignore parameter 'instance'
     return G_DefaultReportDescriptor;
 }
-
 // USB device descriptor for the Microsoft SideWinder FFB (VID 0x045E, PID 0x0034)
 tusb_desc_device_t const desc_device = {.bLength = sizeof(tusb_desc_device_t),
                                         .bDescriptorType = TUSB_DESC_DEVICE,
                                         .bcdUSB = 0x0200,
-
                                         .bDeviceClass = 0x00,
                                         .bDeviceSubClass = 0x00,
                                         .bDeviceProtocol = 0x00,
-
                                         .bMaxPacketSize0 = CFG_TUD_ENDPOINT0_SIZE,
-
                                         .idVendor = 0x045E,   // ms_sidewinder_ffb
                                         .idProduct = 0x0034,  // ms_sidewinder_ffb
-
                                         .bcdDevice = 0x0100,
-
                                         .iManufacturer = 0x01,
                                         .iProduct = 0x02,
                                         .iSerialNumber = 0x03,
-
                                         .bNumConfigurations = 0x01};
-
 //******************************** tinyUSB Function //********************************
-
 static void dump_hex(const uint8_t* buf, int len) {
     char line[256];
     int pos = 0;
@@ -96,7 +75,6 @@ static void dump_hex(const uint8_t* buf, int len) {
     }
     ESP_LOGI(TAG, "%s", line);
 }
-
 // Invoked when received GET_REPORT control request
 // Application must fill buffer report's content and return its length.
 // Return zero will cause the stack to STALL request
@@ -112,7 +90,6 @@ uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_t
     }
     return 0;
 }
-
 // Invoked when received SET_REPORT control request or
 // received data on OUT endpoint ( Report ID = 0, Type = 0 )
 void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t const* buffer, uint16_t bufsize) {
@@ -129,7 +106,6 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
         ffb_set_output(buffer);
     }
 }
-
 void tud_suspend_cb(bool remote_wakeup_en) {
     ESP_LOGI(TAG, "USB device suspended");
     suspended = true;
@@ -140,12 +116,10 @@ void tud_suspend_cb(bool remote_wakeup_en) {
         ESP_LOGI(TAG, "Remote wakeup not available");
     }
 }
-
 void tud_resume_cb(void) {
     ESP_LOGI(TAG, "USB device resumed");
     suspended = false;
 }
-
 static void usb_task(void* arg) {
     ESP_LOGI(TAG, "USB initialization");
     tinyusb_config_t tusb_cfg = TINYUSB_DEFAULT_CONFIG();
@@ -159,7 +133,6 @@ static void usb_task(void* arg) {
 #endif  // TUD_OPT_HIGH_SPEED
     ESP_ERROR_CHECK(tinyusb_driver_install(&tusb_cfg));
     ESP_LOGI(TAG, "USB initialization DONE");
-
     for (;;) {
         xTaskNotifyWait(0, 0xFFFFFFFF, NULL, portMAX_DELAY);
         if (!(tud_mounted() && tud_hid_ready())) {
@@ -181,5 +154,4 @@ static void usb_task(void* arg) {
         tud_hid_report(TLID, &joy, sizeof(hid_joystick_input_t));
     }
 }
-
 void tiny_usb_init(void) { xTaskCreate(usb_task, "usb_task", TASK_STACK_SIZE, NULL, 10, &tiny_usb_task_handle); }

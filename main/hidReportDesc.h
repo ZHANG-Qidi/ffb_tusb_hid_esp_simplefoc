@@ -3,12 +3,10 @@
 	http://www.microchip.com/forums/tm.aspx?m=320225&mpage=2
 	Post number 35
 */
-
 #define DEV				1
 #define DEV_GEN			1	// The non-FFB Joystick part
 #define DEV_FFB			1	// The FFB Joystick part
 #define DEV_ADDITIONAL	0	// The additional part inside the non-FFB part
-
 /*
 	Input
 	Collection Application:
@@ -24,11 +22,8 @@
 	-------------------------
 	Usage Undefined:	1bit
 	Padding:			7bit
-
-	
 */
 #include "public.h"
-
 const unsigned char G_DefaultReportDescriptor[] = {
 #define TLID 0x1 // Top Level ID
 #if DEV_GEN
@@ -66,7 +61,6 @@ const unsigned char G_DefaultReportDescriptor[] = {
     0x75, 0x20,                    //   REPORT_SIZE (32)
     0x95, 0x04,                    //   REPORT_COUNT (4)
     0x81, 0x01,                    //   INPUT (Cnst,Ary,Abs)
-    
     /***************** Eight buttons *******************/
     /***************** 32 buttons *******************/
     0x05, 0x09,                    //   USAGE_PAGE (Button)
@@ -85,7 +79,6 @@ const unsigned char G_DefaultReportDescriptor[] = {
     // 0x75, 0x78,                    //   REPORT_SIZE (120)
     // 0x95, 0x01,                    //   REPORT_COUNT (1)
     // 0x81, 0x01,                    //   INPUT (Cnst,Ary,Abs)
-   
 	/* --- POV Hat Switch (1 value, 0~7, plus neutral 0xF) --- */
 	0x05, 0x01,                    // USAGE_PAGE (Generic Desktop)
 	0x09, 0x39,                    // USAGE (Hat switch)
@@ -97,12 +90,10 @@ const unsigned char G_DefaultReportDescriptor[] = {
 	0x75, 0x04,                    // REPORT_SIZE (4 bits)
 	0x95, 0x01,                    // REPORT_COUNT (1)
 	0x81, 0x42,                    // INPUT (Data,Var,Abs,Null) — allows neutral (0xF)
-
 	/* --- Padding to align to next byte --- */
 	0x75, 0x04,                    // REPORT_SIZE (4 bits)
 	0x95, 0x01,                    // REPORT_COUNT (1)
 	0x81, 0x03,                    // INPUT (Const,Var,Abs)
-
     #if DEV_ADDITIONAL
     /****************** Additional **********************************/
     0x06,0x01,0xFF,   //    Usage Page Generic Desktop
@@ -113,9 +104,7 @@ const unsigned char G_DefaultReportDescriptor[] = {
     0x75,0x07,        //    Report Size 7
     0x81,0x03,        //    Input (Constant, Variable)
     #endif
-    
     #endif // DEV_GEN
-    
     #if DEV_FFB
     /*********************** Force Feedback section Device 1 [Start] ***********************/
     /*
@@ -163,18 +152,14 @@ const unsigned char G_DefaultReportDescriptor[] = {
         0x95,0x01,    //    Report Count 1
         0x81,0x02,    //    Input (Variable)
     0xC0    ,    // End Collection
-    
     /*
     Output
     Collection  Datalink:
     Usage Set Effect Report
-    
     ID:1
     Effect Block Index:	8bit
-    
     subcollection Effect Type
     12 effect types, 8bit each
-    
     */
     0x09,0x21,    //    Usage Set Effect Report
     0xA1,0x02,    //    Collection Datalink (Logical)
@@ -239,7 +224,6 @@ const unsigned char G_DefaultReportDescriptor[] = {
         0x75,0x08,         //    Report Size 8
         0x95,0x01,         //    Report Count 1
         0x91,0x02,         //    Output (Variable)
-        
         0x09,0x55,       //    Usage Axes Enable
         0xA1,0x02,       //    Collection Datalink
             0x05,0x01,    //    Usage Page Generic Desktop
@@ -251,14 +235,12 @@ const unsigned char G_DefaultReportDescriptor[] = {
             0x95,0x02,    //    Report Count 2
             0x91,0x02,    //    Output (Variable)
         0xC0     ,    // End Collection
-        
         0x05,0x0F,    //    Usage Page Physical Interface
         0x09,0x56,    //    Usage Direction Enable
         0x95,0x01,    //    Report Count 1
         0x91,0x02,    //    Output (Variable)
         0x95,0x05,    //    Report Count 5
         0x91,0x03,    //    Output (Constant, Variable)
-        
         0x09,0x57,    //    Usage Direction
         0xA1,0x02,    //    Collection Datalink
             0x0B,0x01,0x00,0x0A,0x00,    //    Usage Ordinals: Instance 1
@@ -276,7 +258,6 @@ const unsigned char G_DefaultReportDescriptor[] = {
             0x55,0x00,                   //    Unit Exponent 0
             0x66,0x00,0x00,              //    Unit 0
         0xC0,                           //    End Collection
-        
         0x05, 0x0F,        //     USAGE_PAGE (Physical Interface)
         0x09, 0x58,        //     USAGE (Type Specific Block Offset)
         0xA1, 0x02,        //     COLLECTION (Logical) 
@@ -288,7 +269,6 @@ const unsigned char G_DefaultReportDescriptor[] = {
             0x91, 0x02,     //     OUTPUT (Data,Var,Abs)
         0xC0,              //     END_COLLECTION
     0xC0,                 //     END_COLLECTION
-    
     // Envelope Report Definition
     0x09,0x5A,    //    Usage Set Envelope Report
     0xA1,0x02,    //    Collection Datalink
@@ -716,6 +696,5 @@ const unsigned char G_DefaultReportDescriptor[] = {
     #endif
     #if DEV_GEN
 0xC0,    //    End Collection
-
 #endif // DEV_GEN
 };
