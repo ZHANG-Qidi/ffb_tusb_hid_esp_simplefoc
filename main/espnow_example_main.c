@@ -252,6 +252,14 @@ static void example_espnow_task(void* pvParameter) {
                                 send_param->broadcast = BS_UNICAST;
                                 memcpy(send_param->dest_mac, peer_mac_addr, ESP_NOW_ETH_ALEN);
                                 xSemaphoreGive(g_send_done_sem);
+
+                                /* Send the unicast confirm data. */
+                                example_espnow_data_prepare(send_param, NULL, 0);
+                                if (esp_now_send(send_param->dest_mac, send_param->buffer, send_param->len) != ESP_OK) {
+                                    ESP_LOGE(TAG, "Send error");
+                                    example_espnow_deinit(send_param);
+                                    vTaskDelete(NULL);
+                                }
                             } else {
                                 ESP_LOGI(TAG, "Sending confim data: %d", confirm_count);
                                 send_next_broadcast(send_param, send_cb);
