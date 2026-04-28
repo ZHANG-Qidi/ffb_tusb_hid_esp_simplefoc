@@ -6,9 +6,6 @@
 #include "hidReportDesc.h"
 #include "interface.h"
 static const char* TAG = "ffb_ffb";
-//******************************** FFB Configuration //********************************
-#define MOTOR_GAIN_DAMPING (0.5f)
-#define MOTOR_GAIN_CONSTANT (0.2f)
 //******************************** FFB Private //********************************
 static uint8_t g_effect_type;
 static uint8_t g_effect_block_index;
