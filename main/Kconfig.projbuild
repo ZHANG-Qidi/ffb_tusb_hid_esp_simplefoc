@@ -61,6 +61,13 @@ menu "Simple FOCConfiguration"
         default 14 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
         help
             GPIO number for MOTOR_C
+    config MOTOR_EN
+        int "MOTOR_C pin number"
+        range ENV_GPIO_RANGE_MIN ENV_GPIO_IN_RANGE_MAX
+        default 15 if IDF_TARGET_ESP32
+        default 11 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
+        help
+            GPIO number for MOTOR_EN
     config IIC_SCL
         int "IIC_SCL pin number"
         range ENV_GPIO_RANGE_MIN ENV_GPIO_IN_RANGE_MAX

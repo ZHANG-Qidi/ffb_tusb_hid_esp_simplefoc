@@ -3,10 +3,12 @@
  *
  * SPDX-License-Identifier: Unlicense OR CC0-1.0
  */
+#include "esp_log.h"
 #include "esp_simplefoc.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "interface.h"
+// static const char* TAG = "ffb_foc";
 //******************************** SimpleFOC Configuration //********************************
 #define BLDC_MOTOR_PP (7)
 #define VOLTAGE_POWER (9.0f)
@@ -16,9 +18,12 @@
 #define MOTOR_A (CONFIG_MOTOR_A)
 #define MOTOR_B (CONFIG_MOTOR_B)
 #define MOTOR_C (CONFIG_MOTOR_C)
+#define MOTOR_EN (CONFIG_MOTOR_EN)
 #define WIRE_SDA ((gpio_num_t)CONFIG_IIC_SDA)
 #define WIRE_SCL ((gpio_num_t)CONFIG_IIC_SCL)
 #define FOC_MONITOR_BAUD CONFIG_MONITOR_BAUD
+#define SENSOR_MT6701 1
+#define SENSOR_AS5600 0
 //******************************** SimpleFOC Input //********************************
 TaskHandle_t foc_task_handle;
 static float g_constant_force;
@@ -31,30 +36,30 @@ void foc_backend_output(float* wheel_rad) { *wheel_rad = g_wheel_rad; }
 #define USING_MCPWM
 #endif
 // magnetic sensor instance - I2C
-AS5600 as5600 = AS5600(I2C_NUM_0, WIRE_SCL, WIRE_SDA);
+#if SENSOR_MT6701
+static MT6701 sensor = MT6701(I2C_NUM_0, WIRE_SCL, WIRE_SDA);
+#define SENSOR_DIRECTION (-1.0f)
+#elif SENSOR_AS5600
+static AS5600 sensor = AS5600(I2C_NUM_0, WIRE_SCL, WIRE_SDA);
+#define SENSOR_DIRECTION (1.0f)
+#endif
 // BLDC motor & driver instance
-BLDCMotor motor = BLDCMotor(BLDC_MOTOR_PP);
-BLDCDriver3PWM driver = BLDCDriver3PWM(MOTOR_A, MOTOR_B, MOTOR_C);
+static BLDCMotor motor = BLDCMotor(BLDC_MOTOR_PP);
+static BLDCDriver3PWM driver = BLDCDriver3PWM(MOTOR_A, MOTOR_B, MOTOR_C, MOTOR_EN);
 static void get_angle_task(void* arg) {
     TickType_t last = xTaskGetTickCount();
     for (;;) {
         vTaskDelayUntil(&last, pdMS_TO_TICKS(1));
-        float wheel_rad = as5600.getAngle();
-        static float wheel_rad_last;
-        if (fabsf(wheel_rad_last - wheel_rad) < 0.002f) {
-            continue;
-        }
-        wheel_rad_last = wheel_rad;
-        g_wheel_rad = wheel_rad;
+        g_wheel_rad = sensor.getAngle() * SENSOR_DIRECTION;
         xTaskNotify(*ffb_task_handle, 0, eSetBits);
-        // ESP_LOGI("FFB", "A%f", wheel_rad);
+        // ESP_LOGI(TAG, "A%f", wheel_rad);
     }
 }
 static void foc_loop_task(void* arg) {
     // initialise magnetic sensor hardware
-    as5600.init();
+    sensor.init();
     // link the motor to the sensor
-    motor.linkSensor(&as5600);
+    motor.linkSensor(&sensor);
     // power supply voltage
     driver.voltage_power_supply = VOLTAGE_POWER;
     driver.voltage_limit = VOLTAGE_LIMIT;
@@ -99,7 +104,7 @@ static void foc_move_task(void* arg) {
     for (;;) {
         vTaskDelayUntil(&last, pdMS_TO_TICKS(1));
         float damper = g_damper;
-        float constant_force = g_constant_force;
+        float constant_force = g_constant_force * SENSOR_DIRECTION;
         float damping = damper * motor.shaft_velocity / DAMPING_MAX_VELOCITY;
         float torque_ratio = constant_force - damping;
         torque_ratio = torque_ratio > 1.0f ? 1.0f : (torque_ratio < -1.0f ? -1.0f : torque_ratio);

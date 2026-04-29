@@ -21,7 +21,7 @@ void tiny_usb_output(float* constant_force, float* damper) {
 }
 //******************************** FFB Shared //********************************
 //******************************** FFB Function //********************************
-void ffb_mixer(void) {
+static void ffb_mixer(void) {
     for (int i = 0; i < FFB_EFFECT_COUNT; i++) {
         if (g_effect_pool[i].allocated == BLOCK_FREE) {
             continue;

@@ -14,11 +14,4 @@ extern TaskHandle_t* ffb_task_handle;
 extern void (*ffb_output)(float* constant_force, float* damper);
 extern void (*ffb_init)(void);
 extern void interface_init(void);
-#ifdef __cplusplus
-extern "C" {
-#endif
-extern void interval_print(const char* TAG);
-#ifdef __cplusplus
-}
-#endif
 #endif

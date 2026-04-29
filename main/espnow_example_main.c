@@ -103,7 +103,7 @@ static void example_espnow_recv_cb(const esp_now_recv_info_t* recv_info, const u
     }
 }
 /* Parse received ESPNOW data. */
-int example_espnow_data_parse(uint8_t* data, uint16_t data_len, uint8_t* state, uint16_t* seq, uint32_t* magic, uint8_t* payload, uint16_t* payload_len) {
+static int example_espnow_data_parse(uint8_t* data, uint16_t data_len, uint8_t* state, uint16_t* seq, uint32_t* magic, uint8_t* payload, uint16_t* payload_len) {
     example_espnow_data_t* buf = (example_espnow_data_t*)data;
     uint16_t crc, crc_cal = 0;
     if (data_len < sizeof(example_espnow_data_t)) {
@@ -123,7 +123,7 @@ int example_espnow_data_parse(uint8_t* data, uint16_t data_len, uint8_t* state, 
     return -1;
 }
 /* Prepare ESPNOW data to be sent. */
-void example_espnow_data_prepare(example_espnow_send_param_t* send_param, uint8_t* payload, uint16_t payload_len) {
+static void example_espnow_data_prepare(example_espnow_send_param_t* send_param, uint8_t* payload, uint16_t payload_len) {
     example_espnow_data_t* buf = (example_espnow_data_t*)send_param->buffer;
     assert(send_param->len >= sizeof(example_espnow_data_t));
     buf->type = IS_BROADCAST_ADDR(send_param->dest_mac) ? EXAMPLE_ESPNOW_DATA_BROADCAST : EXAMPLE_ESPNOW_DATA_UNICAST;
@@ -137,7 +137,7 @@ void example_espnow_data_prepare(example_espnow_send_param_t* send_param, uint8_
     }
     buf->crc = esp_crc16_le(UINT16_MAX, (uint8_t const*)buf, send_param->len);
 }
-void dump_send_cb(example_espnow_send_param_t* send_param, example_espnow_event_send_cb_t* send_cb) {
+static void dump_send_cb(example_espnow_send_param_t* send_param, example_espnow_event_send_cb_t* send_cb) {
     ESP_LOGI(TAG,
              "Send to      "
              "MAC: " MACSTR
@@ -145,7 +145,7 @@ void dump_send_cb(example_espnow_send_param_t* send_param, example_espnow_event_
              ", status: %d",
              MAC2STR(send_cb->mac_addr), send_param->state, send_cb->status);
 }
-void dump_receive_cb(example_espnow_event_recv_cb_t* recv_cb, uint16_t recv_seq, uint8_t recv_state) {
+static void dump_receive_cb(example_espnow_event_recv_cb_t* recv_cb, uint16_t recv_seq, uint8_t recv_state) {
     ESP_LOGI(TAG,
              "Receive from "
              "MAC: " MACSTR
@@ -154,7 +154,7 @@ void dump_receive_cb(example_espnow_event_recv_cb_t* recv_cb, uint16_t recv_seq,
              ", %dth broadcast data",
              MAC2STR(recv_cb->mac_addr), recv_state, recv_cb->data_len, recv_seq);
 }
-void send_next_broadcast(example_espnow_send_param_t* send_param, example_espnow_event_send_cb_t* send_cb) {
+static void send_next_broadcast(example_espnow_send_param_t* send_param, example_espnow_event_send_cb_t* send_cb) {
     /* Delay a while before sending the next broadcast data. */
     if (send_param->delay > 0) {
         vTaskDelay(send_param->delay / portTICK_PERIOD_MS);

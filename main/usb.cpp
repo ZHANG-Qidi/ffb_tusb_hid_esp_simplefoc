@@ -25,7 +25,7 @@ static bool wakeup_host = false;
 /**
  * @brief String descriptor
  */
-const char* hid_string_descriptor[5] = {
+static const char* hid_string_descriptor[5] = {
     // array of pointer to string descriptors
     (char[]){0x09, 0x04},     // 0: is supported language is English (0x0409)
     "TinyUSB",                // 1: Manufacturer
@@ -52,7 +52,7 @@ uint8_t const* tud_hid_descriptor_report_cb(uint8_t instance) {
     return G_DefaultReportDescriptor;
 }
 // USB device descriptor for the Microsoft SideWinder FFB (VID 0x045E, PID 0x0034)
-tusb_desc_device_t const desc_device = {.bLength = sizeof(tusb_desc_device_t),
+static tusb_desc_device_t const desc_device = {.bLength = sizeof(tusb_desc_device_t),
                                         .bDescriptorType = TUSB_DESC_DEVICE,
                                         .bcdUSB = 0x0200,
                                         .bDeviceClass = 0x00,

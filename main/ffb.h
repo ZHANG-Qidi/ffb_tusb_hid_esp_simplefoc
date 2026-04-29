@@ -166,7 +166,7 @@ typedef struct {
     };
 } ffb_effect_t;
 #define FFB_EFFECT_COUNT 32
-uint16_t ffb_get_feature(uint8_t report_id, uint8_t* buffer);
-void ffb_set_feature(uint8_t report_id, const uint8_t* buffer);
-void ffb_set_output(const uint8_t* buffer);
+extern uint16_t ffb_get_feature(uint8_t report_id, uint8_t* buffer);
+extern void ffb_set_feature(uint8_t report_id, const uint8_t* buffer);
+extern void ffb_set_output(const uint8_t* buffer);
 #endif
