@@ -22,8 +22,8 @@
 #define WIRE_SDA ((gpio_num_t)CONFIG_IIC_SDA)
 #define WIRE_SCL ((gpio_num_t)CONFIG_IIC_SCL)
 #define FOC_MONITOR_BAUD CONFIG_MONITOR_BAUD
-#define SENSOR_MT6701 1
-#define SENSOR_AS5600 0
+#define SENSOR_MT6701 0
+#define SENSOR_AS5600 1
 //******************************** SimpleFOC Input //********************************
 TaskHandle_t foc_task_handle;
 static float g_constant_force;
@@ -128,4 +128,5 @@ void foc_backend_init(void) {
     xTaskCreate(foc_loop_task, "foc_loop_task", TASK_STACK_SIZE, NULL, 10, NULL);
     xTaskCreate(foc_move_task, "foc_loop_task", TASK_STACK_SIZE, NULL, 10, NULL);
     xTaskCreate(foc_task, "foc_task", TASK_STACK_SIZE, NULL, 10, &foc_task_handle);
+    vTaskDelay(pdMS_TO_TICKS(500));
 }

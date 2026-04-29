@@ -53,19 +53,19 @@ uint8_t const* tud_hid_descriptor_report_cb(uint8_t instance) {
 }
 // USB device descriptor for the Microsoft SideWinder FFB (VID 0x045E, PID 0x0034)
 static tusb_desc_device_t const desc_device = {.bLength = sizeof(tusb_desc_device_t),
-                                        .bDescriptorType = TUSB_DESC_DEVICE,
-                                        .bcdUSB = 0x0200,
-                                        .bDeviceClass = 0x00,
-                                        .bDeviceSubClass = 0x00,
-                                        .bDeviceProtocol = 0x00,
-                                        .bMaxPacketSize0 = CFG_TUD_ENDPOINT0_SIZE,
-                                        .idVendor = 0x045E,   // ms_sidewinder_ffb
-                                        .idProduct = 0x0034,  // ms_sidewinder_ffb
-                                        .bcdDevice = 0x0100,
-                                        .iManufacturer = 0x01,
-                                        .iProduct = 0x02,
-                                        .iSerialNumber = 0x03,
-                                        .bNumConfigurations = 0x01};
+                                               .bDescriptorType = TUSB_DESC_DEVICE,
+                                               .bcdUSB = 0x0200,
+                                               .bDeviceClass = 0x00,
+                                               .bDeviceSubClass = 0x00,
+                                               .bDeviceProtocol = 0x00,
+                                               .bMaxPacketSize0 = CFG_TUD_ENDPOINT0_SIZE,
+                                               .idVendor = 0x045E,   // ms_sidewinder_ffb
+                                               .idProduct = 0x0034,  // ms_sidewinder_ffb
+                                               .bcdDevice = 0x0100,
+                                               .iManufacturer = 0x01,
+                                               .iProduct = 0x02,
+                                               .iSerialNumber = 0x03,
+                                               .bNumConfigurations = 0x01};
 //******************************** tinyUSB Function //********************************
 static void dump_hex(const uint8_t* buf, int len) {
     char line[256];
@@ -154,4 +154,7 @@ static void usb_task(void* arg) {
         tud_hid_report(TLID, &joy, sizeof(hid_joystick_input_t));
     }
 }
-void tiny_usb_init(void) { xTaskCreate(usb_task, "usb_task", TASK_STACK_SIZE, NULL, 10, &tiny_usb_task_handle); }
+void tiny_usb_init(void) {
+    xTaskCreate(usb_task, "usb_task", TASK_STACK_SIZE, NULL, 10, &tiny_usb_task_handle);
+    vTaskDelay(pdMS_TO_TICKS(500));
+}

@@ -410,4 +410,5 @@ void espnow_backend_init(void) {
     ESP_ERROR_CHECK(ret);
     example_wifi_init();
     example_espnow_init();
+    vTaskDelay(pdMS_TO_TICKS(500));
 }
