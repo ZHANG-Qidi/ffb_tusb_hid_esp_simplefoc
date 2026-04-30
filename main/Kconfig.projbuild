@@ -62,7 +62,7 @@ menu "Simple FOCConfiguration"
         help
             GPIO number for MOTOR_C
     config MOTOR_EN
-        int "MOTOR_C pin number"
+        int "MOTOR_EN pin number"
         range ENV_GPIO_RANGE_MIN ENV_GPIO_IN_RANGE_MAX
         default 15 if IDF_TARGET_ESP32
         default 11 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
@@ -82,6 +82,36 @@ menu "Simple FOCConfiguration"
         default 2 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
         help
             GPIO number for IIC_SDA
+    config SPI_HOST_NUM
+        int "SPI port number"
+        range 0 2 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
+        default 1 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
+        range 0 2 if IDF_TARGET_ESP32
+        default 2 if IDF_TARGET_ESP32
+        help
+            SPI communication port number for the FFB.
+            See SPI documentation for available port numbers.
+    config SPI_CSO
+        int "SPI_CSO pin number"
+        range ENV_GPIO_RANGE_MIN ENV_GPIO_IN_RANGE_MAX
+        default 5 if IDF_TARGET_ESP32
+        default 10 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
+        help
+            GPIO number for SPI_CSO
+    config SPI_CLK
+        int "SPI_CLK pin number"
+        range ENV_GPIO_RANGE_MIN ENV_GPIO_IN_RANGE_MAX
+        default 18 if IDF_TARGET_ESP32
+        default 12 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
+        help
+            GPIO number for SPI_CLK
+    config SPI_Q
+        int "SPI_Q pin number"
+        range ENV_GPIO_RANGE_MIN ENV_GPIO_IN_RANGE_MAX
+        default 19 if IDF_TARGET_ESP32
+        default 13 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
+        help
+            GPIO number for SPI_Q
 endmenu
 menu "ESPNOW Example Configuration"
     choice ESPNOW_WIFI_MODE
