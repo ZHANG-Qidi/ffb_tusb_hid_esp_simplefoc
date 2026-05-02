@@ -388,8 +388,8 @@ static esp_err_t example_espnow_init(void) {
     }
     memcpy(send_param->dest_mac, s_example_broadcast_mac, ESP_NOW_ETH_ALEN);
     example_espnow_data_prepare(send_param, NULL, 0);
-    xTaskCreate(example_espnow_task, "example_espnow_task", 2560, send_param, 10, NULL);
-    xTaskCreate(espnow_write_task, "espnow_write_task", TASK_STACK_SIZE, send_param, 10, &espnow_write_task_handle);
+    xTaskCreatePinnedToCore(example_espnow_task, "example_espnow_task", 2560, send_param, 10, NULL, CORE_0);
+    xTaskCreatePinnedToCore(espnow_write_task, "espnow_write_task", TASK_STACK_SIZE, send_param, 10, &espnow_write_task_handle, CORE_0);
     return ESP_OK;
 }
 static void example_espnow_deinit(example_espnow_send_param_t* send_param) {

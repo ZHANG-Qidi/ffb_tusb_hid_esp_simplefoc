@@ -88,7 +88,7 @@ static void uart_write_task(void* arg) {
     }
 }
 void uart_backend_init(void) {
-    xTaskCreate(uart_read_task, "uart_read_task", TASK_STACK_SIZE, NULL, 10, NULL);
-    xTaskCreate(uart_write_task, "uart_write_task", TASK_STACK_SIZE, NULL, 10, &uart_write_task_handle);
+    xTaskCreatePinnedToCore(uart_read_task, "uart_read_task", TASK_STACK_SIZE, NULL, 10, NULL, CORE_0);
+    xTaskCreatePinnedToCore(uart_write_task, "uart_write_task", TASK_STACK_SIZE, NULL, 10, &uart_write_task_handle, CORE_0);
     vTaskDelay(pdMS_TO_TICKS(500));
 }

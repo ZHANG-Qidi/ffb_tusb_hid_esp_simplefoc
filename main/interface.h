@@ -14,4 +14,11 @@ extern TaskHandle_t* ffb_task_handle;
 extern void (*ffb_output)(float* constant_force, float* damper);
 extern void (*ffb_init)(void);
 extern void interface_init(void);
+#if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S3
+#define CORE_0 (0)
+#define CORE_1 (1)
+#elif CONFIG_IDF_TARGET_ESP32S2
+#define CORE_0 (tskNO_AFFINITY)
+#define CORE_1 (tskNO_AFFINITY)
+#endif
 #endif
