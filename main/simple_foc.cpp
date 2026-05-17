@@ -3,12 +3,13 @@
  *
  * SPDX-License-Identifier: Unlicense OR CC0-1.0
  */
+#include "SimpleFOC.h"
 #include "driver/gptimer.h"
 #include "esp_log.h"
-#include "esp_simplefoc.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "interface.h"
+
 // static const char* TAG = "ffb_foc";
 //******************************** SimpleFOC Configuration //********************************
 #define BLDC_MOTOR_PP (7)
@@ -37,19 +38,18 @@ static float g_constant_force;
 static float g_damper;
 //******************************** SimpleFOC Output //********************************
 static float g_wheel_rad;
-void foc_backend_output(float* wheel_rad) { *wheel_rad = g_wheel_rad; }
+void foc_backend_output(float *wheel_rad) { *wheel_rad = g_wheel_rad; }
 //******************************** SimpleFOC Function //********************************
-#if CONFIG_SOC_MCPWM_SUPPORTED
-#define USING_MCPWM
-#endif
 // magnetic sensor
 #if SENSOR_MT6701
-static MT6701 sensor = MT6701(SPIX_HOST, SPI_CLK, SPI_Q, (gpio_num_t)-1, SPI_CSO);
+// magnetic sensor instance - SPI
+MagneticSensorSPI sensor = MagneticSensorSPI(AS5147_SPI, SPI_MASTER_CS_IO);
 #define SENSOR_DIRECTION (-1.0f)
 #define SENSOR_STEP_MIN (0.0003835f)
-#define FOC_LOOP_PERIOD (100)
+#define FOC_LOOP_PERIOD (1000)
 #elif SENSOR_AS5600
-static AS5600 sensor = AS5600(I2C_NUM_0, WIRE_SCL, WIRE_SDA);
+// magnetic sensor instance - MagneticSensorI2C
+MagneticSensorI2C sensor = MagneticSensorI2C(AS5600_I2C);
 #define SENSOR_DIRECTION (1.0f)
 #define SENSOR_STEP_MIN (0.001534f)
 #define FOC_LOOP_PERIOD (1000)
@@ -57,10 +57,10 @@ static AS5600 sensor = AS5600(I2C_NUM_0, WIRE_SCL, WIRE_SDA);
 // BLDC motor & driver instance
 static BLDCMotor motor = BLDCMotor(BLDC_MOTOR_PP);
 static BLDCDriver3PWM driver = BLDCDriver3PWM(MOTOR_A, MOTOR_B, MOTOR_C, MOTOR_EN);
-static void get_angle_task(void* arg) {
+static void get_angle_task(void *arg) {
     TickType_t last = xTaskGetTickCount();
     for (;;) {
-        vTaskDelayUntil(&last, pdMS_TO_TICKS(1));
+        vTaskDelayUntil(&last, pdMS_TO_TICKS(5));
         float wheel_rad = sensor.getAngle() * SENSOR_DIRECTION;
         if (fabsf(wheel_rad - g_wheel_rad) < SENSOR_STEP_MIN * SENSOR_STEP_NUM) {
             continue;
@@ -70,20 +70,18 @@ static void get_angle_task(void* arg) {
         // ESP_LOGI(TAG, "A%f", g_wheel_rad);
     }
 }
-static void foc_init_task(void* arg) {
+static void foc_init_task(void *arg) {
     // initialise magnetic sensor hardware
     sensor.init();
     // link the motor to the sensor
     motor.linkSensor(&sensor);
+
     // power supply voltage
     driver.voltage_power_supply = VOLTAGE_POWER;
     driver.voltage_limit = VOLTAGE_LIMIT;
-#ifdef USING_MCPWM
-    driver.init(0);
-#else
-    driver.init({1, 2, 3});
-#endif
+    driver.init();
     motor.linkDriver(&driver);
+
     // aligning voltage
     motor.voltage_sensor_align = VOLTAGE_SENSOR_ALIGN;
     // choose FOC modulation (optional)
@@ -92,20 +90,18 @@ static void foc_init_task(void* arg) {
     motor.controller = MotionControlType::torque;
     // set torque control loop to be used
     motor.torque_controller = TorqueControlType::voltage;
+
     // use monitoring with serial
-    vTaskDelay(pdMS_TO_TICKS(100));
     Serial.begin(FOC_MONITOR_BAUD);
     // comment out if not needed
-    vTaskDelay(pdMS_TO_TICKS(100));
-    SimpleFOCDebug::enable();
-    vTaskDelay(pdMS_TO_TICKS(100));
     motor.useMonitoring(Serial);
+
     // initialize motor
     motor.init();
     // align sensor and start FOC
     motor.initFOC();
-    // div of motor.loopFOC() and motor.move()
-    static int div = 0;
+    _delay(1000);
+
     for (;;) {
         // main FOC algorithm function
         // the faster you run this function the better
@@ -113,10 +109,7 @@ static void foc_init_task(void* arg) {
         // Bluepill loop ~10kHz
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
         motor.loopFOC();
-        if (++div < 2) {
-            continue;
-        }
-        div = 0;
+
         float damper = g_damper;
         float constant_force = g_constant_force;
         float damping = damper * motor.shaft_velocity / DAMPING_MAX_VELOCITY;
@@ -131,13 +124,13 @@ static void foc_init_task(void* arg) {
         motor.move(target_voltage);
     }
 }
-void foc_input_task(void* arg) {
+void foc_input_task(void *arg) {
     for (;;) {
         xTaskNotifyWait(0, 0xFFFFFFFF, NULL, portMAX_DELAY);
         ffb_output(&g_constant_force, &g_damper);
     }
 }
-static bool example_timer_on_alarm_cb(gptimer_handle_t timer, const gptimer_alarm_event_data_t* edata, void* user_ctx) {
+static bool example_timer_on_alarm_cb(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *user_ctx) {
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     vTaskNotifyGiveFromISR(foc_loop_handle, &xHigherPriorityTaskWoken);
     return (xHigherPriorityTaskWoken == pdTRUE);

@@ -1,0 +1,37 @@
+* 项目简介
+- 一个基于 ESP32 的力反馈 (FFB) 2804 云台电机方向盘项目
+- USB
+  - tinyUSB
+- FOC
+  - Simple FOC (只实现了电压控制的移植版)
+* 功能
+** FFB 前端
+- 完全基于 tinyUSB, 模拟了 Microsoft SideWinder FFB 设备, HID 描述符来自 vJoy
+- 只实现了 CONSTANT 恒定力, DAMPING 阻尼
+- 支持 欧卡2, 尘埃拉力赛2.0
+** MOTOR
+- 电机后端可选择 本机 FOC, ESP NOE, UART
+*** FOC
+- 本机 FOC 直接控制电机
+*** ESP NOW
+- 和从机通过 ESP NOW 建立连接, 主机下发 FFB 数据, 从机上传 角度 数据
+*** UART
+- 和从机通过 UART 建立连接, 主机下发 FFB 数据, 从机上传 角度 数据
+- UART 模式理论上支持 Simple FOC 的 Commander, 所以 UART 从机可选择任何支持 Arduino Simple FOC 的 3.3V 开发板
+** TODO 参数设置说明
+*** 前后端设置
+*** GPIO 和 硬件资源 设置
+*** FFB 参数设置
+* 硬件与软件
+** 硬件
+- STM32 S3
+- MT6701
+- AS5600
+- Simple FOC mini
+** 软件
+- ESP-IDF
+- tinyUSB
+- ESP-IDF Extension for VS Code
+* 引用资源
+** [[https://github.com/shauleiz/vJoy][vJoy]]
+- FFB PID HID 描述符来自该项目

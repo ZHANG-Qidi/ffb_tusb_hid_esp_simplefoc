@@ -5,7 +5,7 @@
 #include "freertos/task.h"
 #include "hidReportDesc.h"
 #include "interface.h"
-static const char* TAG = "ffb_ffb";
+static const char *TAG = "ffb_ffb";
 //******************************** FFB Private //********************************
 static uint8_t g_effect_type;
 static uint8_t g_effect_block_index;
@@ -15,7 +15,7 @@ static ffb_effect_t g_effect_pool[FFB_EFFECT_COUNT];
 //******************************** FFB Output //********************************
 static float g_constant_force;
 static float g_damper = MOTOR_DAMPING_MIN;
-void tiny_usb_output(float* constant_force, float* damper) {
+void tiny_usb_output(float *constant_force, float *damper) {
     *constant_force = g_constant_force;
     *damper = g_damper;
 }
@@ -55,7 +55,7 @@ static void ffb_mixer(void) {
     }
     xTaskNotify(*motor_task_handle, 0, eSetBits);
 }
-uint16_t ffb_get_feature(uint8_t report_id, uint8_t* buffer) {
+uint16_t ffb_get_feature(uint8_t report_id, uint8_t *buffer) {
     switch (report_id) {
         case (HID_ID_POOLREP + 0x10 * TLID): {
             buffer[0] = 0xff;
@@ -78,7 +78,7 @@ uint16_t ffb_get_feature(uint8_t report_id, uint8_t* buffer) {
     }
     return 0;
 }
-void ffb_set_feature(uint8_t report_id, const uint8_t* buffer) {
+void ffb_set_feature(uint8_t report_id, const uint8_t *buffer) {
     switch (report_id) {
         case (HID_ID_NEWEFREP + 0x10 * TLID): {
             uint8_t type = buffer[0];
@@ -101,7 +101,7 @@ void ffb_set_feature(uint8_t report_id, const uint8_t* buffer) {
         }
     }
 }
-void ffb_set_output(const uint8_t* buffer) {
+void ffb_set_output(const uint8_t *buffer) {
     switch (buffer[0]) {
         case (HID_ID_CTRLREP + 0x10 * TLID):
             switch (buffer[1]) {
@@ -140,7 +140,7 @@ void ffb_set_output(const uint8_t* buffer) {
             break;
         }
         case (HID_ID_BLKFRREP + 0x10 * TLID): {
-            ffb_effect_t* e = &g_effect_pool[buffer[1] - 1];
+            ffb_effect_t *e = &g_effect_pool[buffer[1] - 1];
             memset(e, 0, sizeof(ffb_effect_t));
             break;
         }

@@ -4,7 +4,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "interface.h"
-static const char* TAG = "ffb_uart";
+static const char *TAG = "ffb_uart";
 //******************************** UART Configure //********************************
 #define UART_TXD (CONFIG_FFB_UART_TXD)
 #define UART_RXD (CONFIG_FFB_UART_RXD)
@@ -18,9 +18,9 @@ static const char* TAG = "ffb_uart";
 TaskHandle_t uart_write_task_handle;
 //******************************** UART Output //********************************
 static float g_wheel_rad;
-void uart_backend_output(float* wheel_rad) { *wheel_rad = g_wheel_rad; }
+void uart_backend_output(float *wheel_rad) { *wheel_rad = g_wheel_rad; }
 //******************************** UART Function //********************************
-static void uart_read_task(void* arg) {
+static void uart_read_task(void *arg) {
     /* Configure parameters of an UART driver,
      * communication pins and install the driver */
     uart_config_t uart_config = {
@@ -73,7 +73,7 @@ static void uart_read_task(void* arg) {
         }
     }
 }
-static void uart_write_task(void* arg) {
+static void uart_write_task(void *arg) {
     for (;;) {
         xTaskNotifyWait(0, 0xFFFFFFFF, NULL, portMAX_DELAY);
         float constant_force;
@@ -82,9 +82,9 @@ static void uart_write_task(void* arg) {
         // Write data to the UART
         char data[64];
         sprintf(data, "F%f\n", constant_force);
-        uart_write_bytes(UART_PORT_NUM, (const char*)data, strlen(data));
+        uart_write_bytes(UART_PORT_NUM, (const char *)data, strlen(data));
         sprintf(data, "D%f\n", damper);
-        uart_write_bytes(UART_PORT_NUM, (const char*)data, strlen(data));
+        uart_write_bytes(UART_PORT_NUM, (const char *)data, strlen(data));
     }
 }
 void uart_backend_init(void) {

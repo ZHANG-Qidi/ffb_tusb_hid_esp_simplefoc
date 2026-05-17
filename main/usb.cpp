@@ -11,7 +11,7 @@
 #include "interface.h"
 #include "tinyusb.h"
 #include "tinyusb_default_config.h"
-static const char* TAG = "ffb_usb";
+static const char *TAG = "ffb_usb";
 //******************************** tinyUSB Input //********************************
 TaskHandle_t tiny_usb_task_handle;
 //******************************** tinyUSB Output //********************************
@@ -25,7 +25,7 @@ static bool wakeup_host = false;
 /**
  * @brief String descriptor
  */
-static const char* hid_string_descriptor[5] = {
+static const char *hid_string_descriptor[5] = {
     // array of pointer to string descriptors
     (char[]){0x09, 0x04},     // 0: is supported language is English (0x0409)
     "TinyUSB",                // 1: Manufacturer
@@ -47,7 +47,7 @@ static const uint8_t hid_configuration_descriptor[] = {
 };
 // Invoked when received GET HID REPORT DESCRIPTOR request
 // Application return pointer to descriptor, whose contents must exist long enough for transfer to complete
-uint8_t const* tud_hid_descriptor_report_cb(uint8_t instance) {
+uint8_t const *tud_hid_descriptor_report_cb(uint8_t instance) {
     // We use only one interface and one HID report descriptor, so we can ignore parameter 'instance'
     return G_DefaultReportDescriptor;
 }
@@ -67,7 +67,7 @@ static tusb_desc_device_t const desc_device = {.bLength = sizeof(tusb_desc_devic
                                                .iSerialNumber = 0x03,
                                                .bNumConfigurations = 0x01};
 //******************************** tinyUSB Function //********************************
-static void dump_hex(const uint8_t* buf, int len) {
+static void dump_hex(const uint8_t *buf, int len) {
     char line[256];
     int pos = 0;
     for (int i = 0; i < len; i++) {
@@ -78,7 +78,7 @@ static void dump_hex(const uint8_t* buf, int len) {
 // Invoked when received GET_REPORT control request
 // Application must fill buffer report's content and return its length.
 // Return zero will cause the stack to STALL request
-uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t* buffer, uint16_t reqlen) {
+uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t *buffer, uint16_t reqlen) {
     ESP_LOGI(TAG, "GET_REPORT: inst=%u id=%u type=%u len=%u", instance, report_id, report_type, reqlen);
     dump_hex(buffer, reqlen);
     if (report_type == HID_REPORT_TYPE_INPUT) {
@@ -92,7 +92,7 @@ uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_t
 }
 // Invoked when received SET_REPORT control request or
 // received data on OUT endpoint ( Report ID = 0, Type = 0 )
-void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t const* buffer, uint16_t bufsize) {
+void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t const *buffer, uint16_t bufsize) {
     // ESP_LOGI(TAG, "SET_REPORT: inst=%u id=%u type=%u size=%u", instance, report_id, report_type, bufsize);
     // dump_hex(buffer, bufsize);
     if (report_type == HID_REPORT_TYPE_INPUT) {
@@ -120,7 +120,7 @@ void tud_resume_cb(void) {
     ESP_LOGI(TAG, "USB device resumed");
     suspended = false;
 }
-static void usb_task(void* arg) {
+static void usb_task(void *arg) {
     ESP_LOGI(TAG, "USB initialization");
     tinyusb_config_t tusb_cfg = TINYUSB_DEFAULT_CONFIG();
     // tusb_cfg.descriptor.device = NULL;
@@ -155,6 +155,6 @@ static void usb_task(void* arg) {
     }
 }
 void tiny_usb_init(void) {
-    xTaskCreate(usb_task, "usb_task", TASK_STACK_SIZE, NULL, 10, &tiny_usb_task_handle);
+    xTaskCreatePinnedToCore(usb_task, "usb_task", TASK_STACK_SIZE, NULL, 10, &tiny_usb_task_handle, CORE_0);
     vTaskDelay(pdMS_TO_TICKS(500));
 }

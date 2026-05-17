@@ -5,7 +5,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-extern void interval_print(const char* TAG);
+extern void interval_print(const char *TAG);
 #ifdef __cplusplus
 }
 #endif

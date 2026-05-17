@@ -3,38 +3,40 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 //******************************** Motor Backend //********************************
-TaskHandle_t* motor_task_handle;
-void (*motor_output)(float* wheel_rad);
+TaskHandle_t *motor_task_handle;
+void (*motor_output)(float *wheel_rad);
 void (*motor_init)(void);
 extern TaskHandle_t foc_task_handle;
-extern void foc_backend_output(float* wheel_rad);
+extern void foc_backend_output(float *wheel_rad);
 extern void foc_backend_init(void);
 extern TaskHandle_t uart_write_task_handle;
-extern void uart_backend_output(float* wheel_rad);
+extern void uart_backend_output(float *wheel_rad);
 extern void uart_backend_init(void);
 extern TaskHandle_t espnow_write_task_handle;
 extern "C" {
-extern void espnow_backend_output(float* wheel_rad);
+extern void espnow_backend_output(float *wheel_rad);
 extern void espnow_backend_init(void);
 }
 //******************************** FFB Backend //********************************
-TaskHandle_t* ffb_task_handle;
+TaskHandle_t *ffb_task_handle;
 void (*ffb_init)(void);
-void (*ffb_output)(float* constant_force, float* damper);
+void (*ffb_output)(float *constant_force, float *damper);
 extern TaskHandle_t tiny_usb_task_handle;
 extern void tiny_usb_init(void);
-extern void tiny_usb_output(float* constant_force, float* damper);
+extern void tiny_usb_output(float *constant_force, float *damper);
 //******************************** Interface Function //********************************
 void interface_init(void) {
 #if ESPNOW_BACKEND
     motor_task_handle = &espnow_write_task_handle;
     motor_output = espnow_backend_output;
     motor_init = espnow_backend_init;
-#elif CONFIG_IDF_TARGET_ESP32S2
+#endif
+#if UART_BACKEND
     motor_task_handle = &uart_write_task_handle;
     motor_output = uart_backend_output;
     motor_init = uart_backend_init;
-#elif CONFIG_IDF_TARGET_ESP32S3
+#endif
+#if FOC_BACKEND
     motor_task_handle = &foc_task_handle;
     motor_output = foc_backend_output;
     motor_init = foc_backend_init;
