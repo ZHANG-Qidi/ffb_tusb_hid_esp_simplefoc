@@ -10,7 +10,7 @@
 - 只实现了 CONSTANT 恒定力, DAMPING 阻尼
 - 支持 欧卡2, 尘埃拉力赛2.0
 ** MOTOR
-- 电机后端可选择 本机 FOC, ESP NOE, UART
+- 电机后端可选择 本机 FOC, ESP NOW, UART
 *** FOC
 - 本机 FOC 直接控制电机
 *** ESP NOW
