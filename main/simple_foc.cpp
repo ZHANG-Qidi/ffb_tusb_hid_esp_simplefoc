@@ -17,17 +17,11 @@
 #define VOLTAGE_LIMIT (6.0f)
 #define VOLTAGE_SENSOR_ALIGN (3.0f)
 #define DAMPING_MAX_VELOCITY (6.0f * PI)
-#define MOTOR_A (CONFIG_MOTOR_A)
-#define MOTOR_B (CONFIG_MOTOR_B)
-#define MOTOR_C (CONFIG_MOTOR_C)
-#define MOTOR_EN (CONFIG_MOTOR_EN)
-#define WIRE_SDA ((gpio_num_t)CONFIG_IIC_SDA)
-#define WIRE_SCL ((gpio_num_t)CONFIG_IIC_SCL)
-#define SPI_CSO ((gpio_num_t)CONFIG_SPI_CSO)
-#define SPI_CLK ((gpio_num_t)CONFIG_SPI_CLK)
-#define SPI_Q ((gpio_num_t)CONFIG_SPI_Q)
-#define SPIX_HOST ((spi_host_device_t)CONFIG_SPI_HOST_NUM)
-#define FOC_MONITOR_BAUD CONFIG_MONITOR_BAUD
+#define MOTOR_U (CONFIG_FOC_MOTOR_U)
+#define MOTOR_V (CONFIG_FOC_MOTOR_V)
+#define MOTOR_W (CONFIG_FOC_MOTOR_W)
+#define MOTOR_EN (CONFIG_FOC_MOTOR_EN)
+#define COMMANDER_BAUD_RATE (CONFIG_ARDUINO_UART_BAUD_RATE)
 #define SENSOR_MT6701 1
 #define SENSOR_AS5600 0
 #define SENSOR_STEP_NUM (2.0f)
@@ -56,7 +50,7 @@ MagneticSensorI2C sensor = MagneticSensorI2C(AS5600_I2C);
 #endif
 // BLDC motor & driver instance
 static BLDCMotor motor = BLDCMotor(BLDC_MOTOR_PP);
-static BLDCDriver3PWM driver = BLDCDriver3PWM(MOTOR_A, MOTOR_B, MOTOR_C, MOTOR_EN);
+static BLDCDriver3PWM driver = BLDCDriver3PWM(MOTOR_U, MOTOR_V, MOTOR_W, MOTOR_EN);
 static void get_angle_task(void *arg) {
     TickType_t last = xTaskGetTickCount();
     for (;;) {
@@ -92,7 +86,7 @@ static void foc_init_task(void *arg) {
     motor.torque_controller = TorqueControlType::voltage;
 
     // use monitoring with serial
-    Serial.begin(FOC_MONITOR_BAUD);
+    Serial.begin(COMMANDER_BAUD_RATE);
     // comment out if not needed
     motor.useMonitoring(Serial);
 
