@@ -1,5 +1,7 @@
 #include "ffb.h"
 
+#include <cstdint>
+
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -40,11 +42,19 @@ static void ffb_mixer(void) {
                 int16_t magnitude = g_effect_pool[i].constant_force_report.magnitude;
                 float constant_force = magnitude * gain_effect_scale * gain_device_scale / CONSTANT_MANITUDE_MAX * MOTOR_GAIN_CONSTANT;
                 g_constant_force = constant_force;
+                // ESP_LOGI(TAG, "ET_CONSTANT: %f", g_constant_force);
+                break;
+            }
+            case ET_DAMPER: {
+                float damper = (float)g_effect_pool[i].condition_report.positive_coefficient / (float)g_effect_pool[i].condition_report.positive_saturation * MOTOR_GAIN_DAMPING;
+                g_damper = damper < MOTOR_DAMPING_MIN ? MOTOR_DAMPING_MIN : damper;
+                // ESP_LOGI(TAG, "ET_DAMPER: %f", g_damper);
                 break;
             }
             case ET_DAMPER_DR2: {
-                float damper = (float)g_effect_pool[i].condition_report.positive_coefficient / (float)g_effect_pool[i].condition_report.positive_saturation * MOTOR_GAIN_DAMPING;
+                float damper = (float)g_effect_pool[i].condition_report.positive_coefficient / (float)g_effect_pool[i].condition_report.positive_saturation * MOTOR_GAIN_DAMPING_DR2;
                 g_damper = damper < MOTOR_DAMPING_MIN ? MOTOR_DAMPING_MIN : damper;
+                // ESP_LOGI(TAG, "ET_DAMPER: %f", g_damper);
                 break;
             }
             default: {
@@ -136,7 +146,6 @@ void ffb_set_output(const uint8_t *buffer) {
         }
         case (HID_ID_EFOPREP + 0x10 * TLID): {
             memcpy(g_effect_pool[buffer[1] - 1].operation_report_raw, &buffer[1], OPERATION_REPORT_LEN);
-            ffb_mixer();
             break;
         }
         case (HID_ID_BLKFRREP + 0x10 * TLID): {
@@ -157,4 +166,5 @@ void ffb_set_output(const uint8_t *buffer) {
             break;
         }
     }
+    ffb_mixer();
 }

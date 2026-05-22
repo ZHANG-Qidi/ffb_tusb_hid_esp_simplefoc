@@ -11,6 +11,7 @@
 #include "interface.h"
 #include "tinyusb.h"
 #include "tinyusb_default_config.h"
+#include "wheel_registry.h"
 static const char *TAG = "ffb_usb";
 //******************************** tinyUSB Input //********************************
 TaskHandle_t tiny_usb_task_handle;
@@ -51,7 +52,6 @@ uint8_t const *tud_hid_descriptor_report_cb(uint8_t instance) {
     // We use only one interface and one HID report descriptor, so we can ignore parameter 'instance'
     return G_DefaultReportDescriptor;
 }
-// USB device descriptor for the Microsoft SideWinder FFB (VID 0x045E, PID 0x0034)
 static tusb_desc_device_t const desc_device = {.bLength = sizeof(tusb_desc_device_t),
                                                .bDescriptorType = TUSB_DESC_DEVICE,
                                                .bcdUSB = 0x0200,
@@ -59,8 +59,8 @@ static tusb_desc_device_t const desc_device = {.bLength = sizeof(tusb_desc_devic
                                                .bDeviceSubClass = 0x00,
                                                .bDeviceProtocol = 0x00,
                                                .bMaxPacketSize0 = CFG_TUD_ENDPOINT0_SIZE,
-                                               .idVendor = 0x045E,   // ms_sidewinder_ffb
-                                               .idProduct = 0x0034,  // ms_sidewinder_ffb
+                                               .idVendor = wheel_table[WHEEL_LG_G923_XONE].vid,
+                                               .idProduct = wheel_table[WHEEL_LG_G923_XONE].pid,
                                                .bcdDevice = 0x0100,
                                                .iManufacturer = 0x01,
                                                .iProduct = 0x02,
@@ -83,10 +83,10 @@ uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_t
     dump_hex(buffer, reqlen);
     if (report_type == HID_REPORT_TYPE_INPUT) {
     }
+    if (report_type == HID_REPORT_TYPE_OUTPUT) {
+    }
     if (report_type == HID_REPORT_TYPE_FEATURE) {
         return ffb_get_feature(report_id, buffer);
-    }
-    if (report_type == HID_REPORT_TYPE_OUTPUT) {
     }
     return 0;
 }
@@ -96,14 +96,18 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
     // ESP_LOGI(TAG, "SET_REPORT: inst=%u id=%u type=%u size=%u", instance, report_id, report_type, bufsize);
     // dump_hex(buffer, bufsize);
     if (report_type == HID_REPORT_TYPE_INPUT) {
+        // ESP_LOGI(TAG, "SET_REPORT: inst=%u id=%u type=%u size=%u", instance, report_id, report_type, bufsize);
+        // dump_hex(buffer, bufsize);
+    }
+    if (report_type == HID_REPORT_TYPE_OUTPUT) {
+        // ESP_LOGI(TAG, "SET_REPORT: inst=%u id=%u type=%u size=%u", instance, report_id, report_type, bufsize);
+        // dump_hex(buffer, bufsize);
+        ffb_set_output(buffer);
     }
     if (report_type == HID_REPORT_TYPE_FEATURE) {
         ESP_LOGI(TAG, "SET_REPORT: inst=%u id=%u type=%u size=%u", instance, report_id, report_type, bufsize);
         dump_hex(buffer, bufsize);
         ffb_set_feature(report_id, buffer);
-    }
-    if (report_type == HID_REPORT_TYPE_OUTPUT) {
-        ffb_set_output(buffer);
     }
 }
 void tud_suspend_cb(bool remote_wakeup_en) {
@@ -138,15 +142,17 @@ static void usb_task(void *arg) {
         if (!(tud_mounted() && tud_hid_ready())) {
             continue;
         }
-        hid_joystick_input_t joy = {.axis_x = (uint32_t)JOYSTIC_AXIS_LOGICAL_MID,
-                                    .axis_y = (uint32_t)JOYSTIC_AXIS_LOGICAL_MID,
-                                    .axis_z = (uint32_t)JOYSTIC_AXIS_LOGICAL_MID,
-                                    .axis_rx = (uint32_t)JOYSTIC_AXIS_LOGICAL_MID,
-                                    .axis_ry = (uint32_t)JOYSTIC_AXIS_LOGICAL_MID,
-                                    .axis_rz = (uint32_t)JOYSTIC_AXIS_LOGICAL_MID,
-                                    .slider = (uint32_t)JOYSTIC_AXIS_LOGICAL_MID,
-                                    .dial = (uint32_t)JOYSTIC_AXIS_LOGICAL_MID,
-                                    .pov = 8};
+        hid_joystick_input_t joy = {
+            .axis_x = (uint32_t)JOYSTIC_AXIS_LOGICAL_MID,
+            .axis_y = (uint32_t)JOYSTIC_AXIS_LOGICAL_MID,
+            .axis_z = (uint32_t)JOYSTIC_AXIS_LOGICAL_MID,
+            .axis_rx = (uint32_t)JOYSTIC_AXIS_LOGICAL_MID,
+            .axis_ry = (uint32_t)JOYSTIC_AXIS_LOGICAL_MID,
+            .axis_rz = (uint32_t)JOYSTIC_AXIS_LOGICAL_MID,
+            .slider = (uint32_t)JOYSTIC_AXIS_LOGICAL_MID,
+            .dial = (uint32_t)JOYSTIC_AXIS_LOGICAL_MID,
+            .pov = 8,
+        };
         float wheel_rad;
         motor_output(&wheel_rad);
         float wheel_rad_clamped = wheel_rad > WHEEL_HALF ? WHEEL_HALF : (wheel_rad < -WHEEL_HALF ? -WHEEL_HALF : wheel_rad);

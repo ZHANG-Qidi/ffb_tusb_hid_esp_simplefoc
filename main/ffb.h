@@ -6,8 +6,9 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 //******************************** FFB Configuration //********************************
-#define MOTOR_GAIN_DAMPING (0.5f)
-#define MOTOR_GAIN_CONSTANT (0.4f)
+#define MOTOR_GAIN_DAMPING (1.0f)
+#define MOTOR_GAIN_DAMPING_DR2 (0.5f)
+#define MOTOR_GAIN_CONSTANT (0.2f)
 //******************************** USB JOYSTICK INPUT REPORT //********************************
 #define JOYSTIC_AXIS_LOGICAL_MID (16383.5f)
 #define JOYSTIC_AXIS_LOGICAL_MAX (32767.0f)
