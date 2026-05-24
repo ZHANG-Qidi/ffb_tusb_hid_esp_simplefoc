@@ -103,7 +103,10 @@ static void analogWriteInitMcpwm(uint8_t pin_u, uint8_t pin_v, uint8_t pin_w) {
     }
 
     mcpwm_gen_handle_t generators[3];
-    int gen_gpios[3] = {pin_u, pin_v, pin_w};
+    int gen_gpios[3];
+    gen_gpios[pin_u % 3] = pin_u;
+    gen_gpios[pin_v % 3] = pin_v;
+    gen_gpios[pin_w % 3] = pin_w;
     mcpwm_generator_config_t gen_config = {};
     for (int i = 0; i < 3; i++) {
         gen_config.gen_gpio_num = gen_gpios[i];
