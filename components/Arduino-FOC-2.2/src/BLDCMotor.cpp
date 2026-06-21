@@ -321,8 +321,7 @@ void BLDCMotor::move(float new_target) {
     //                        For this reason it is NOT precise when the angles become large.
     //                        Additionally, the way LPF works on angle is a precision issue, and the angle-LPF is a problem
     //                        when switching to a 2-component representation.
-    if (controller != MotionControlType::angle_openloop && controller != MotionControlType::velocity_openloop)
-        shaft_angle = shaftAngle();  // read value even if motor is disabled to keep the monitoring updated but not in openloop mode
+    if (controller != MotionControlType::angle_openloop && controller != MotionControlType::velocity_openloop) shaft_angle = shaftAngle();  // read value even if motor is disabled to keep the monitoring updated but not in openloop mode
     // get angular velocity
     shaft_velocity = shaftVelocity();  // read value even if motor is disabled to keep the monitoring updated
 
@@ -411,8 +410,7 @@ void BLDCMotor::setPhaseVoltage(float Uq, float Ud, float angle_el) {
         case FOCModulationType::Trapezoid_120:
             // see https://www.youtube.com/watch?v=InzXA7mWBWE Slide 5
             static int trap_120_map[6][3] = {
-                {_HIGH_IMPEDANCE, 1, -1}, {-1, 1, _HIGH_IMPEDANCE}, {-1, _HIGH_IMPEDANCE, 1},
-                {_HIGH_IMPEDANCE, -1, 1}, {1, -1, _HIGH_IMPEDANCE}, {1, _HIGH_IMPEDANCE, -1}  // each is 60 degrees with values for 3 phases of 1=positive -1=negative 0=high-z
+                {_HIGH_IMPEDANCE, 1, -1}, {-1, 1, _HIGH_IMPEDANCE}, {-1, _HIGH_IMPEDANCE, 1}, {_HIGH_IMPEDANCE, -1, 1}, {1, -1, _HIGH_IMPEDANCE}, {1, _HIGH_IMPEDANCE, -1}  // each is 60 degrees with values for 3 phases of 1=positive -1=negative 0=high-z
             };
             // static int trap_120_state = 0;
             sector = 6 * (_normalizeAngle(angle_el + _PI_6) / _2PI);  // adding PI/6 to align with other modes
@@ -443,8 +441,8 @@ void BLDCMotor::setPhaseVoltage(float Uq, float Ud, float angle_el) {
         case FOCModulationType::Trapezoid_150:
             // see https://www.youtube.com/watch?v=InzXA7mWBWE Slide 8
             static int trap_150_map[12][3] = {
-                {_HIGH_IMPEDANCE, 1, -1}, {-1, 1, -1}, {-1, 1, _HIGH_IMPEDANCE}, {-1, 1, 1}, {-1, _HIGH_IMPEDANCE, 1}, {-1, -1, 1}, {_HIGH_IMPEDANCE, -1, 1}, {1, -1, 1},
-                {1, -1, _HIGH_IMPEDANCE}, {1, -1, -1}, {1, _HIGH_IMPEDANCE, -1}, {1, 1, -1}  // each is 30 degrees with values for 3 phases of 1=positive -1=negative 0=high-z
+                {_HIGH_IMPEDANCE, 1, -1}, {-1, 1, -1}, {-1, 1, _HIGH_IMPEDANCE}, {-1, 1, 1},  {-1, _HIGH_IMPEDANCE, 1}, {-1, -1, 1},
+                {_HIGH_IMPEDANCE, -1, 1}, {1, -1, 1},  {1, -1, _HIGH_IMPEDANCE}, {1, -1, -1}, {1, _HIGH_IMPEDANCE, -1}, {1, 1, -1}  // each is 30 degrees with values for 3 phases of 1=positive -1=negative 0=high-z
             };
             // static int trap_150_state = 0;
             sector = 12 * (_normalizeAngle(angle_el + _PI_6) / _2PI);  // adding PI/6 to align with other modes

@@ -74,13 +74,10 @@ tccConfiguration getTCCChannelNr(int pin, EPioType peripheral) {
     return result;
 }
 
-bool checkPeripheralPermutationSameTCC6(tccConfiguration &pinAh, tccConfiguration &pinAl, tccConfiguration &pinBh, tccConfiguration &pinBl, tccConfiguration &pinCh,
-                                        tccConfiguration &pinCl) {
+bool checkPeripheralPermutationSameTCC6(tccConfiguration &pinAh, tccConfiguration &pinAl, tccConfiguration &pinBh, tccConfiguration &pinBl, tccConfiguration &pinCh, tccConfiguration &pinCl) {
     if (inUse(pinAh) || inUse(pinAl) || inUse(pinBh) || inUse(pinBl) || inUse(pinCh) || inUse(pinCl)) return false;
 
-    if (pinAh.tcc.tccn < 0 || pinAh.tcc.tccn != pinAl.tcc.tccn || pinAh.tcc.tccn != pinBh.tcc.tccn || pinAh.tcc.tccn != pinBl.tcc.tccn || pinAh.tcc.tccn != pinCh.tcc.tccn ||
-        pinAh.tcc.tccn != pinCl.tcc.tccn || pinAh.tcc.tccn >= TCC_INST_NUM)
-        return false;
+    if (pinAh.tcc.tccn < 0 || pinAh.tcc.tccn != pinAl.tcc.tccn || pinAh.tcc.tccn != pinBh.tcc.tccn || pinAh.tcc.tccn != pinBl.tcc.tccn || pinAh.tcc.tccn != pinCh.tcc.tccn || pinAh.tcc.tccn != pinCl.tcc.tccn || pinAh.tcc.tccn >= TCC_INST_NUM) return false;
 
     if (pinAh.tcc.chan == pinBh.tcc.chan || pinAh.tcc.chan == pinBl.tcc.chan || pinAh.tcc.chan == pinCh.tcc.chan || pinAh.tcc.chan == pinCl.tcc.chan) return false;
     if (pinBh.tcc.chan == pinCh.tcc.chan || pinBh.tcc.chan == pinCl.tcc.chan) return false;
@@ -104,25 +101,18 @@ bool checkPeripheralPermutationCompatible(tccConfiguration pins[], uint8_t num) 
     return true;
 }
 
-bool checkPeripheralPermutationCompatible6(tccConfiguration &pinAh, tccConfiguration &pinAl, tccConfiguration &pinBh, tccConfiguration &pinBl, tccConfiguration &pinCh,
-                                           tccConfiguration &pinCl) {
+bool checkPeripheralPermutationCompatible6(tccConfiguration &pinAh, tccConfiguration &pinAl, tccConfiguration &pinBh, tccConfiguration &pinBl, tccConfiguration &pinCh, tccConfiguration &pinCl) {
     // check we're valid PWM pins
     if (pinAh.tcc.tccn < 0 || pinAl.tcc.tccn < 0 || pinBh.tcc.tccn < 0 || pinBl.tcc.tccn < 0 || pinCh.tcc.tccn < 0 || pinCl.tcc.tccn < 0) return false;
     // only TCC units for 6-PWM
-    if (pinAh.tcc.tccn >= TCC_INST_NUM || pinAl.tcc.tccn >= TCC_INST_NUM || pinBh.tcc.tccn >= TCC_INST_NUM || pinBl.tcc.tccn >= TCC_INST_NUM || pinCh.tcc.tccn >= TCC_INST_NUM ||
-        pinCl.tcc.tccn >= TCC_INST_NUM)
-        return false;
+    if (pinAh.tcc.tccn >= TCC_INST_NUM || pinAl.tcc.tccn >= TCC_INST_NUM || pinBh.tcc.tccn >= TCC_INST_NUM || pinBl.tcc.tccn >= TCC_INST_NUM || pinCh.tcc.tccn >= TCC_INST_NUM || pinCl.tcc.tccn >= TCC_INST_NUM) return false;
 
     // check we're not in use
     if (inUse(pinAh) || inUse(pinAl) || inUse(pinBh) || inUse(pinBl) || inUse(pinCh) || inUse(pinCl)) return false;
 
     // check pins are all different tccs/channels
-    if (pinAh.tcc.chaninfo == pinBh.tcc.chaninfo || pinAh.tcc.chaninfo == pinBl.tcc.chaninfo || pinAh.tcc.chaninfo == pinCh.tcc.chaninfo ||
-        pinAh.tcc.chaninfo == pinCl.tcc.chaninfo)
-        return false;
-    if (pinAl.tcc.chaninfo == pinBh.tcc.chaninfo || pinAl.tcc.chaninfo == pinBl.tcc.chaninfo || pinAl.tcc.chaninfo == pinCh.tcc.chaninfo ||
-        pinAl.tcc.chaninfo == pinCl.tcc.chaninfo)
-        return false;
+    if (pinAh.tcc.chaninfo == pinBh.tcc.chaninfo || pinAh.tcc.chaninfo == pinBl.tcc.chaninfo || pinAh.tcc.chaninfo == pinCh.tcc.chaninfo || pinAh.tcc.chaninfo == pinCl.tcc.chaninfo) return false;
+    if (pinAl.tcc.chaninfo == pinBh.tcc.chaninfo || pinAl.tcc.chaninfo == pinBl.tcc.chaninfo || pinAl.tcc.chaninfo == pinCh.tcc.chaninfo || pinAl.tcc.chaninfo == pinCl.tcc.chaninfo) return false;
     if (pinBh.tcc.chaninfo == pinCh.tcc.chaninfo || pinBh.tcc.chaninfo == pinCl.tcc.chaninfo) return false;
     if (pinBl.tcc.chaninfo == pinCh.tcc.chaninfo || pinBl.tcc.chaninfo == pinCl.tcc.chaninfo) return false;
 
@@ -293,8 +283,7 @@ void _configure3PWM(long pwm_frequency, const int pinA, const int pinB, const in
         return;
     }
 
-    tccConfiguration tccConfs[3] = {getTCCChannelNr(pinA, getPeripheralOfPermutation(compatibility, 0)), getTCCChannelNr(pinB, getPeripheralOfPermutation(compatibility, 1)),
-                                    getTCCChannelNr(pinC, getPeripheralOfPermutation(compatibility, 2))};
+    tccConfiguration tccConfs[3] = {getTCCChannelNr(pinA, getPeripheralOfPermutation(compatibility, 0)), getTCCChannelNr(pinB, getPeripheralOfPermutation(compatibility, 1)), getTCCChannelNr(pinC, getPeripheralOfPermutation(compatibility, 2))};
 
 #ifdef SIMPLEFOC_SAMD_DEBUG
     SIMPLEFOC_SAMD_DEBUG_SERIAL.print("Found configuration: (score=");
@@ -351,8 +340,8 @@ void _configure4PWM(long pwm_frequency, const int pin1A, const int pin1B, const 
         return;
     }
 
-    tccConfiguration tccConfs[4] = {getTCCChannelNr(pin1A, getPeripheralOfPermutation(compatibility, 0)), getTCCChannelNr(pin1B, getPeripheralOfPermutation(compatibility, 1)),
-                                    getTCCChannelNr(pin2A, getPeripheralOfPermutation(compatibility, 2)), getTCCChannelNr(pin2B, getPeripheralOfPermutation(compatibility, 3))};
+    tccConfiguration tccConfs[4] = {getTCCChannelNr(pin1A, getPeripheralOfPermutation(compatibility, 0)), getTCCChannelNr(pin1B, getPeripheralOfPermutation(compatibility, 1)), getTCCChannelNr(pin2A, getPeripheralOfPermutation(compatibility, 2)),
+                                    getTCCChannelNr(pin2B, getPeripheralOfPermutation(compatibility, 3))};
 
 #ifdef SIMPLEFOC_SAMD_DEBUG
     SIMPLEFOC_SAMD_DEBUG_SERIAL.print("Found configuration: (score=");

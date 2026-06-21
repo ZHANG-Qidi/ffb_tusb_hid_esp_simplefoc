@@ -12,29 +12,6 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-// CPU / Global settings
-volatile uint8_t SREG;
-
-// USART registers (dummy AVR compatibility)
-volatile uint8_t UBRRH;
-volatile uint8_t UBRRL;
-volatile uint8_t UCSRA;
-volatile uint8_t UCSRB;
-volatile uint8_t UCSRC;
-volatile uint8_t UDR;
-
-volatile uint8_t UBRR0H;
-volatile uint8_t UBRR0L;
-volatile uint8_t UCSR0A;
-volatile uint8_t UCSR0B;
-volatile uint8_t UCSR0C;
-volatile uint8_t UDR0;
-
-// SPI registers (dummy AVR compatibility)
-volatile uint8_t SPCR;
-volatile uint8_t SPSR;
-volatile uint8_t SPDR;
-
 void delayMicroseconds(unsigned int us) { esp_rom_delay_us(us); }
 
 void delay(unsigned long ms) { vTaskDelay(pdMS_TO_TICKS(ms)); }

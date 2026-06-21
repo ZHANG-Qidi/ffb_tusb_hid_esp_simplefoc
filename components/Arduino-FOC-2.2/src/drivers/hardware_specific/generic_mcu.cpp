@@ -44,8 +44,7 @@ __attribute__((weak)) void _configure4PWM(long pwm_frequency, const int pin1A, c
 // Configuring PWM frequency, resolution and alignment
 // - BLDC driver - 6PWM setting
 // - hardware specific
-__attribute__((weak)) int _configure6PWM(long pwm_frequency, float dead_zone, const int pinA_h, const int pinA_l, const int pinB_h, const int pinB_l, const int pinC_h,
-                                         const int pinC_l) {
+__attribute__((weak)) int _configure6PWM(long pwm_frequency, float dead_zone, const int pinA_h, const int pinA_l, const int pinB_h, const int pinB_l, const int pinC_h, const int pinC_l) {
     _UNUSED(pwm_frequency);
     _UNUSED(dead_zone);
     _UNUSED(pinA_h);

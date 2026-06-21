@@ -5,8 +5,7 @@
  *
  * @section intro_sec Introduction
  *
- * Proper low-cost and low-power FOC supporting boards are very hard to find these days and even may not exist.<br> Even harder to find is a stable and simple FOC algorithm code
-capable of running on Arduino devices. Therefore this is an attempt to:
+ * Proper low-cost and low-power FOC supporting boards are very hard to find these days and even may not exist.<br> Even harder to find is a stable and simple FOC algorithm code capable of running on Arduino devices. Therefore this is an attempt to:
  * - Demystify FOC algorithm and make a robust but simple Arduino library: Arduino SimpleFOC library
  * - Develop a modular BLDC driver board: Arduino SimpleFOC shield.
  *
@@ -100,18 +99,13 @@ void loop() {
 #include "BLDCMotor.h"
 #include "StepperMotor.h"
 #include "communication/Commander.h"
-#include "communication/StepDirListener.h"
 #include "current_sense/InlineCurrentSense.h"
 #include "current_sense/LowsideCurrentSense.h"
 #include "drivers/BLDCDriver3PWM.h"
 #include "drivers/BLDCDriver6PWM.h"
 #include "drivers/StepperDriver2PWM.h"
 #include "drivers/StepperDriver4PWM.h"
-#include "sensors/Encoder.h"
-#include "sensors/HallSensor.h"
-#include "sensors/MagneticSensorAnalog.h"
 #include "sensors/MagneticSensorI2C.h"
-#include "sensors/MagneticSensorPWM.h"
 #include "sensors/MagneticSensorSPI.h"
 
 #endif

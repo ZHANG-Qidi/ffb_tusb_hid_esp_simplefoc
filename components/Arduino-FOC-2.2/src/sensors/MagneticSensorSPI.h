@@ -3,7 +3,7 @@
 
 #ifndef TARGET_RP2040
 
-#include <../../../ArduinoCore-avr-1.8.7/libraries/SPI/src/SPI.h>
+#include <SPI.h>
 
 #include "../common/base_classes/Sensor.h"
 #include "../common/foc_utils.h"

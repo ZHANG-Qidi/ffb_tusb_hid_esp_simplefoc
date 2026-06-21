@@ -52,20 +52,22 @@ uint8_t const *tud_hid_descriptor_report_cb(uint8_t instance) {
     // We use only one interface and one HID report descriptor, so we can ignore parameter 'instance'
     return G_DefaultReportDescriptor;
 }
-static tusb_desc_device_t const desc_device = {.bLength = sizeof(tusb_desc_device_t),
-                                               .bDescriptorType = TUSB_DESC_DEVICE,
-                                               .bcdUSB = 0x0200,
-                                               .bDeviceClass = 0x00,
-                                               .bDeviceSubClass = 0x00,
-                                               .bDeviceProtocol = 0x00,
-                                               .bMaxPacketSize0 = CFG_TUD_ENDPOINT0_SIZE,
-                                               .idVendor = wheel_table[WHEEL_LG_G923_XONE].vid,
-                                               .idProduct = wheel_table[WHEEL_LG_G923_XONE].pid,
-                                               .bcdDevice = 0x0100,
-                                               .iManufacturer = 0x01,
-                                               .iProduct = 0x02,
-                                               .iSerialNumber = 0x03,
-                                               .bNumConfigurations = 0x01};
+static tusb_desc_device_t const desc_device = {
+    .bLength = sizeof(tusb_desc_device_t),
+    .bDescriptorType = TUSB_DESC_DEVICE,
+    .bcdUSB = 0x0200,
+    .bDeviceClass = 0x00,
+    .bDeviceSubClass = 0x00,
+    .bDeviceProtocol = 0x00,
+    .bMaxPacketSize0 = CFG_TUD_ENDPOINT0_SIZE,
+    .idVendor = wheel_table[WHEEL_LG_G923_XONE].vid,
+    .idProduct = wheel_table[WHEEL_LG_G923_XONE].pid,
+    .bcdDevice = 0x0100,
+    .iManufacturer = 0x01,
+    .iProduct = 0x02,
+    .iSerialNumber = 0x03,
+    .bNumConfigurations = 0x01,
+};
 //******************************** tinyUSB Function //********************************
 static void dump_hex(const uint8_t *buf, int len) {
     char line[256];

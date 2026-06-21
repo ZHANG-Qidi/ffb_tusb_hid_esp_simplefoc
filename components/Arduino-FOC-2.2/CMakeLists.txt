@@ -4,9 +4,10 @@ file(GLOB_RECURSE ARDUINO_FOC_SRC
 )
 
 idf_component_register(
-    SRCS ${ARDUINO_FOC_SRC}
+    SRCS
+        ${ARDUINO_FOC_SRC}
     INCLUDE_DIRS
-    ${CMAKE_CURRENT_LIST_DIR}/src
+        ${CMAKE_CURRENT_LIST_DIR}/src
     REQUIRES
-    ArduinoCore-avr-1.8.7
+        ArduinoCore-avr-1.8.7
 )

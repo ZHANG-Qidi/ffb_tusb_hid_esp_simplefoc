@@ -45,10 +45,6 @@ class TwoWire : public Stream {
     static uint8_t txBufferLength;
 
     static uint8_t transmitting;
-    static void (*user_onRequest)(void);
-    static void (*user_onReceive)(int);
-    static void onRequestService(void);
-    static void onReceiveService(uint8_t *, int);
 
     static i2c_master_bus_handle_t bus_handle;
     static i2c_master_dev_handle_t dev_handle;
@@ -78,8 +74,6 @@ class TwoWire : public Stream {
     virtual int read(void);
     virtual int peek(void);
     virtual void flush(void);
-    void onReceive(void (*)(int));
-    void onRequest(void (*)(void));
 
     inline size_t write(unsigned long n) { return write((uint8_t)n); }
     inline size_t write(long n) { return write((uint8_t)n); }

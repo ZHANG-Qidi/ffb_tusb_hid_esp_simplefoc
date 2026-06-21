@@ -1,0 +1,10 @@
+Language: Cpp
+
+BasedOnStyle: Google
+ColumnLimit: 256
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+DerivePointerAlignment: false
+PointerAlignment: Right
+SpaceAfterCStyleCast: false

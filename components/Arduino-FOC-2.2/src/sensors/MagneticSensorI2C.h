@@ -1,7 +1,7 @@
 #ifndef MAGNETICSENSORI2C_LIB_H
 #define MAGNETICSENSORI2C_LIB_H
 
-#include <../../../ArduinoCore-avr-1.8.7/libraries/Wire/src/Wire.h>
+#include <Wire.h>
 
 #include "../common/base_classes/Sensor.h"
 #include "../common/foc_utils.h"

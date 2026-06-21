@@ -12,8 +12,7 @@ static unsigned long _pwm_frequency;
 static int _max_pwm_value = 1023;
 
 // array mapping the timer values to the interrupt handlers
-static IRQn_Type irq_type[] = {TC0_IRQn, TC0_IRQn, TC1_IRQn, TC1_IRQn, TC2_IRQn, TC2_IRQn, TC3_IRQn, TC3_IRQn, TC4_IRQn,
-                               TC4_IRQn, TC5_IRQn, TC5_IRQn, TC6_IRQn, TC6_IRQn, TC7_IRQn, TC7_IRQn, TC8_IRQn, TC8_IRQn};
+static IRQn_Type irq_type[] = {TC0_IRQn, TC0_IRQn, TC1_IRQn, TC1_IRQn, TC2_IRQn, TC2_IRQn, TC3_IRQn, TC3_IRQn, TC4_IRQn, TC4_IRQn, TC5_IRQn, TC5_IRQn, TC6_IRQn, TC6_IRQn, TC7_IRQn, TC7_IRQn, TC8_IRQn, TC8_IRQn};
 // current counter values
 static volatile uint32_t pwm_counter_vals[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 

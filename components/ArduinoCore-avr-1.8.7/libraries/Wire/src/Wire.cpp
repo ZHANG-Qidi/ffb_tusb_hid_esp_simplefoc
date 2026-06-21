@@ -25,10 +25,6 @@ extern "C" {
 #include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
-
-/*
-#include "utility/twi.h"
-*/
 }
 
 #include "Arduino_interface.h"
@@ -47,8 +43,6 @@ uint8_t TwoWire::txBufferIndex = 0;
 uint8_t TwoWire::txBufferLength = 0;
 
 uint8_t TwoWire::transmitting = 0;
-void (*TwoWire::user_onRequest)(void);
-void (*TwoWire::user_onReceive)(int);
 
 i2c_master_bus_handle_t TwoWire::bus_handle = nullptr;
 i2c_master_dev_handle_t TwoWire::dev_handle = nullptr;
@@ -66,12 +60,6 @@ void TwoWire::begin(void) {
     txBufferIndex = 0;
     txBufferLength = 0;
 
-    /*
-    twi_init();
-    twi_attachSlaveTxEvent(onRequestService);  // default callback must exist
-    twi_attachSlaveRxEvent(onReceiveService);  // default callback must exist
-     */
-
     i2c_master_bus_config_t bus_config = {
         .i2c_port = I2C_MASTER_NUM,
         .sda_io_num = (gpio_num_t)I2C_MASTER_SDA_IO,
@@ -85,24 +73,12 @@ void TwoWire::begin(void) {
     ESP_ERROR_CHECK(i2c_new_master_bus(&bus_config, &bus_handle));
 }
 
-void TwoWire::begin(uint8_t address) {
-    begin();
-    /*
-    twi_setAddress(address);
-    */
-    (void)address;
-}
+void TwoWire::begin(uint8_t address) { begin(); }
 
 void TwoWire::begin(int address) { begin((uint8_t)address); }
 
-/*
-void TwoWire::end(void) { twi_disable(); }
-*/
 void TwoWire::end(void) { ESP_ERROR_CHECK(i2c_del_master_bus(bus_handle)); }
 
-/*
-void TwoWire::setClock(uint32_t clock) { twi_setFrequency(clock); }
-*/
 void TwoWire::setClock(uint32_t clock) { (void)clock; }
 
 /***
@@ -131,30 +107,18 @@ void TwoWire::setClock(uint32_t clock) { (void)clock; }
  *                           if false then TWI interface will not be reset on timeout
 
  */
-/*
-void TwoWire::setWireTimeout(uint32_t timeout, bool reset_with_timeout) { twi_setTimeoutInMicros(timeout, reset_with_timeout); }
-*/
-void TwoWire::setWireTimeout(uint32_t timeout, bool reset_with_timeout) {
-    (void)timeout;
-    (void)reset_with_timeout;
-}
+void TwoWire::setWireTimeout(uint32_t timeout, bool reset_with_timeout) {}
 
 /***
  * Returns the TWI timeout flag.
  *
  * @return true if timeout has occurred since the flag was last cleared.
  */
-/*
-bool TwoWire::getWireTimeoutFlag(void) { return (twi_manageTimeoutFlag(false)); }
-*/
 bool TwoWire::getWireTimeoutFlag(void) { return false; }
 
 /***
  * Clears the TWI timeout flag.
  */
-/*
-void TwoWire::clearWireTimeoutFlag(void) { twi_manageTimeoutFlag(true); }
-*/
 void TwoWire::clearWireTimeoutFlag(void) {}
 
 uint8_t TwoWire::requestFrom(uint8_t address, uint8_t quantity, uint32_t iaddress, uint8_t isize, uint8_t sendStop) {
@@ -202,9 +166,7 @@ uint8_t TwoWire::requestFrom(uint8_t address, uint8_t quantity, uint32_t iaddres
     return read;
 }
 
-uint8_t TwoWire::requestFrom(uint8_t address, uint8_t quantity, uint8_t sendStop) {
-    return requestFrom((uint8_t)address, (uint8_t)quantity, (uint32_t)0, (uint8_t)0, (uint8_t)sendStop);
-}
+uint8_t TwoWire::requestFrom(uint8_t address, uint8_t quantity, uint8_t sendStop) { return requestFrom((uint8_t)address, (uint8_t)quantity, (uint32_t)0, (uint8_t)0, (uint8_t)sendStop); }
 
 uint8_t TwoWire::requestFrom(uint8_t address, uint8_t quantity) { return requestFrom((uint8_t)address, (uint8_t)quantity, (uint8_t) true); }
 
@@ -286,9 +248,6 @@ size_t TwoWire::write(uint8_t data) {
     } else {
         // in slave send mode
         // reply to master
-        /*
-        twi_transmit(&data, 1);
-         */
     }
     return 1;
 }
@@ -305,9 +264,6 @@ size_t TwoWire::write(const uint8_t *data, size_t quantity) {
     } else {
         // in slave send mode
         // reply to master
-        /*
-        twi_transmit(data, quantity);
-         */
     }
     return quantity;
 }
@@ -348,50 +304,6 @@ int TwoWire::peek(void) {
 void TwoWire::flush(void) {
     // XXX: to be implemented.
 }
-
-// behind the scenes function that is called when data is received
-void TwoWire::onReceiveService(uint8_t *inBytes, int numBytes) {
-    // don't bother if user hasn't registered a callback
-    if (!user_onReceive) {
-        return;
-    }
-    // don't bother if rx buffer is in use by a master requestFrom() op
-    // i know this drops data, but it allows for slight stupidity
-    // meaning, they may not have read all the master requestFrom() data yet
-    if (rxBufferIndex < rxBufferLength) {
-        return;
-    }
-    // copy twi rx buffer into local read buffer
-    // this enables new reads to happen in parallel
-    for (uint8_t i = 0; i < numBytes; ++i) {
-        rxBuffer[i] = inBytes[i];
-    }
-    // set rx iterator vars
-    rxBufferIndex = 0;
-    rxBufferLength = numBytes;
-    // alert user program
-    user_onReceive(numBytes);
-}
-
-// behind the scenes function that is called when data is requested
-void TwoWire::onRequestService(void) {
-    // don't bother if user hasn't registered a callback
-    if (!user_onRequest) {
-        return;
-    }
-    // reset tx buffer iterator vars
-    // !!! this will kill any pending pre-master sendTo() activity
-    txBufferIndex = 0;
-    txBufferLength = 0;
-    // alert user program
-    user_onRequest();
-}
-
-// sets function called on slave write
-void TwoWire::onReceive(void (*function)(int)) { user_onReceive = function; }
-
-// sets function called on slave read
-void TwoWire::onRequest(void (*function)(void)) { user_onRequest = function; }
 
 // Preinstantiate Objects //////////////////////////////////////////////////////
 
