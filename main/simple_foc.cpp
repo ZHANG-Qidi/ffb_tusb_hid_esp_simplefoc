@@ -27,7 +27,6 @@
 #define SENSOR_STEP_NUM (2.0f)
 //******************************** SimpleFOC Input //********************************
 TaskHandle_t foc_task_handle;
-TaskHandle_t foc_loop_handle;
 static float g_constant_force;
 static float g_damper;
 //******************************** SimpleFOC Output //********************************
@@ -60,11 +59,11 @@ static void get_angle_task(void *arg) {
             continue;
         }
         g_wheel_rad = wheel_rad;
-        xTaskNotify(*ffb_task_handle, 0, eSetBits);
+        xTaskNotifyGive(*ffb_task_handle);
         // ESP_LOGI(TAG, "A%f", g_wheel_rad);
     }
 }
-static void foc_init_task(void *arg) {
+void setup(void) {
     // initialise magnetic sensor hardware
     sensor.init();
     // link the motor to the sensor
@@ -95,44 +94,50 @@ static void foc_init_task(void *arg) {
     // align sensor and start FOC
     motor.initFOC();
     _delay(1000);
+}
+#define ARDUINO_LOOP_PERIOD (100.f)
+void loop(void) {
+    // main FOC algorithm function
+    // the faster you run this function the better
+    // Arduino UNO loop  ~1kHz
+    // Bluepill loop ~10kHz
+    motor.loopFOC();
 
+    float damper = g_damper;
+    float constant_force = g_constant_force;
+    float damping = damper * motor.shaft_velocity / DAMPING_MAX_VELOCITY;
+    float torque_ratio = constant_force - damping;
+    torque_ratio = torque_ratio > 1.0f ? 1.0f : (torque_ratio < -1.0f ? -1.0f : torque_ratio);
+    // voltage set point variable
+    float target_voltage = VOLTAGE_LIMIT * torque_ratio;
+    // Motion control function
+    // current_velocity, position or voltage (defined in motor.controller)
+    // this function can be run at much lower frequency than loopFOC() function
+    // You can also use motor.move() and set the motor.target in the code
+    motor.move(target_voltage);
+}
+TaskHandle_t app_arduino_handle;
+static void app_arduino_task(void *arg) {
+    setup();
+    // TickType_t last = xTaskGetTickCount();
     for (;;) {
-        // main FOC algorithm function
-        // the faster you run this function the better
-        // Arduino UNO loop  ~1kHz
-        // Bluepill loop ~10kHz
+        // vTaskDelayUntil(&last, pdMS_TO_TICKS(1));
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-        motor.loopFOC();
-
-        float damper = g_damper;
-        float constant_force = g_constant_force;
-        float damping = damper * motor.shaft_velocity / DAMPING_MAX_VELOCITY;
-        float torque_ratio = constant_force - damping;
-        torque_ratio = torque_ratio > 1.0f ? 1.0f : (torque_ratio < -1.0f ? -1.0f : torque_ratio);
-        // voltage set point variable
-        float target_voltage = VOLTAGE_LIMIT * torque_ratio;
-        // Motion control function
-        // current_velocity, position or voltage (defined in motor.controller)
-        // this function can be run at much lower frequency than loopFOC() function
-        // You can also use motor.move() and set the motor.target in the code
-        motor.move(target_voltage);
+        loop();
     }
 }
 void foc_input_task(void *arg) {
     for (;;) {
-        xTaskNotifyWait(0, 0xFFFFFFFF, NULL, portMAX_DELAY);
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
         ffb_output(&g_constant_force, &g_damper);
     }
 }
 static bool example_timer_on_alarm_cb(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *user_ctx) {
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-    vTaskNotifyGiveFromISR(foc_loop_handle, &xHigherPriorityTaskWoken);
+    vTaskNotifyGiveFromISR(app_arduino_handle, &xHigherPriorityTaskWoken);
     return (xHigherPriorityTaskWoken == pdTRUE);
 }
-void foc_backend_init(void) {
-    xTaskCreatePinnedToCore(foc_init_task, "foc_init_task", TASK_STACK_SIZE, NULL, 12, &foc_loop_handle, CORE_1);
-    xTaskCreatePinnedToCore(foc_input_task, "foc_input_task", TASK_STACK_SIZE, NULL, 11, &foc_task_handle, CORE_1);
-    xTaskCreatePinnedToCore(get_angle_task, "get_angle_task", TASK_STACK_SIZE, NULL, 10, NULL, CORE_1);
+void gptimer_init(void) {
     gptimer_handle_t gptimer = NULL;
     gptimer_config_t timer_config = {
         .clk_src = GPTIMER_CLK_SRC_DEFAULT,
@@ -140,17 +145,24 @@ void foc_backend_init(void) {
         .resolution_hz = 1 * 1000 * 1000,
     };
     ESP_ERROR_CHECK(gptimer_new_timer(&timer_config, &gptimer));
-    gptimer_alarm_config_t alarm_config = {.alarm_count = FOC_LOOP_PERIOD,
-                                           .reload_count = 0,
-                                           .flags = {
-                                               .auto_reload_on_alarm = true,
-                                           }};
+    gptimer_alarm_config_t alarm_config = {};
+    alarm_config.reload_count = 0;
+    alarm_config.alarm_count = ARDUINO_LOOP_PERIOD;
+    alarm_config.flags.auto_reload_on_alarm = true;
+
     ESP_ERROR_CHECK(gptimer_set_alarm_action(gptimer, &alarm_config));
     gptimer_event_callbacks_t cbs = {
         .on_alarm = example_timer_on_alarm_cb,
+
     };
     ESP_ERROR_CHECK(gptimer_register_event_callbacks(gptimer, &cbs, NULL));
     ESP_ERROR_CHECK(gptimer_enable(gptimer));
     ESP_ERROR_CHECK(gptimer_start(gptimer));
+}
+void foc_backend_init(void) {
+    xTaskCreatePinnedToCore(app_arduino_task, "foc_init_task", TASK_STACK_SIZE, NULL, 12, &app_arduino_handle, CORE_1);
+    xTaskCreatePinnedToCore(foc_input_task, "foc_input_task", TASK_STACK_SIZE, NULL, 11, &foc_task_handle, CORE_1);
+    xTaskCreatePinnedToCore(get_angle_task, "get_angle_task", TASK_STACK_SIZE, NULL, 10, NULL, CORE_1);
+    gptimer_init();
     vTaskDelay(pdMS_TO_TICKS(500));
 }

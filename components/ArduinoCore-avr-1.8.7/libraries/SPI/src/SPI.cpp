@@ -27,10 +27,10 @@ void SPIClass::begin() {
     buscfg.sclk_io_num = SPI_MASTER_SCLK_IO;
     buscfg.quadwp_io_num = -1;
     buscfg.quadhd_io_num = -1;
-    spi_bus_initialize(SPI_MASTER_NUM, &buscfg, SPI_DMA_CH_AUTO);
+    spi_bus_initialize(SPI_MASTER_NUM, &buscfg, SPI_DMA_DISABLED);
 
     spi_device_interface_config_t devcfg = {};
-    devcfg.clock_speed_hz = 2 * 1000 * 1000;
+    devcfg.clock_speed_hz = 10 * 1000 * 1000;
     devcfg.mode = 1;
     devcfg.spics_io_num = SPI_MASTER_CS_IO;
     devcfg.queue_size = 1;

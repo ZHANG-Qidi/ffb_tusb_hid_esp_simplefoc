@@ -63,7 +63,7 @@ class SPIClass {
         t.tx_buffer = tx;
         t.rxlength = 16;
         t.rx_buffer = rx;
-        spi_device_transmit(mt6701, &t);
+        spi_device_polling_transmit(mt6701, &t);
         return (uint16_t(rx[0]) << 8) | rx[1];
     }
     inline static void transfer(void *buf, size_t count) {}

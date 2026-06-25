@@ -60,8 +60,8 @@ static tusb_desc_device_t const desc_device = {
     .bDeviceSubClass = 0x00,
     .bDeviceProtocol = 0x00,
     .bMaxPacketSize0 = CFG_TUD_ENDPOINT0_SIZE,
-    .idVendor = wheel_table[WHEEL_LG_G923_XONE].vid,
-    .idProduct = wheel_table[WHEEL_LG_G923_XONE].pid,
+    .idVendor = wheel_table[WHEEL_MS_SIDEWINDER_FFB].vid,
+    .idProduct = wheel_table[WHEEL_MS_SIDEWINDER_FFB].pid,
     .bcdDevice = 0x0100,
     .iManufacturer = 0x01,
     .iProduct = 0x02,
@@ -140,7 +140,7 @@ static void usb_task(void *arg) {
     ESP_ERROR_CHECK(tinyusb_driver_install(&tusb_cfg));
     ESP_LOGI(TAG, "USB initialization DONE");
     for (;;) {
-        xTaskNotifyWait(0, 0xFFFFFFFF, NULL, portMAX_DELAY);
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
         if (!(tud_mounted() && tud_hid_ready())) {
             continue;
         }

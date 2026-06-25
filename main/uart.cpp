@@ -54,7 +54,7 @@ static void uart_read_task(void *arg) {
                     // ESP_LOGI(TAG, "%s", buf);
                     if (buf[0] == 'A') {
                         g_wheel_rad = strtof(&buf[1], NULL);
-                        xTaskNotify(*ffb_task_handle, 0, eSetBits);
+                        xTaskNotifyGive(*ffb_task_handle);
                     }
                     break;
                 }
@@ -75,7 +75,7 @@ static void uart_read_task(void *arg) {
 }
 static void uart_write_task(void *arg) {
     for (;;) {
-        xTaskNotifyWait(0, 0xFFFFFFFF, NULL, portMAX_DELAY);
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
         float constant_force;
         float damper;
         ffb_output(&constant_force, &damper);

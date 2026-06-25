@@ -16,7 +16,6 @@ idf_component_register(
     esp_wifi
     esp_driver_gpio
     esp_driver_uart
-    esp_timer
     esp_driver_gptimer
     REQUIRES
     ArduinoCore-avr-1.8.7

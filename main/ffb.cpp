@@ -63,7 +63,7 @@ static void ffb_mixer(void) {
             }
         }
     }
-    xTaskNotify(*motor_task_handle, 0, eSetBits);
+    xTaskNotifyGive(*motor_task_handle);
 }
 uint16_t ffb_get_feature(uint8_t report_id, uint8_t *buffer) {
     switch (report_id) {

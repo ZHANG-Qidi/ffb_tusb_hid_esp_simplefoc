@@ -294,7 +294,7 @@ static void example_espnow_task(void *pvParameter) {
                         xSemaphoreGive(g_send_done_sem);
                     }
                     memcpy(&g_motor_output_data, payload, sizeof(motor_output_t));
-                    xTaskNotify(*ffb_task_handle, 0, eSetBits);
+                    xTaskNotifyGive(*ffb_task_handle);
                 } else {
                     ESP_LOGI(TAG, "Receive error data from: " MACSTR "", MAC2STR(recv_cb->mac_addr));
                 }
@@ -312,7 +312,7 @@ static void espnow_write_task(void *pvParameter) {
         while (send_param->broadcast != BS_UNICAST) {
             vTaskDelay(pdMS_TO_TICKS(10));
         }
-        xTaskNotifyWait(0, 0xFFFFFFFF, NULL, portMAX_DELAY);
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
         xSemaphoreTake(g_send_done_sem, portMAX_DELAY);
         ffb_output_t ffb_output_data = {};
         float constant_force;
