@@ -168,9 +168,9 @@ uint8_t TwoWire::requestFrom(uint8_t address, uint8_t quantity, uint32_t iaddres
 
 uint8_t TwoWire::requestFrom(uint8_t address, uint8_t quantity, uint8_t sendStop) { return requestFrom((uint8_t)address, (uint8_t)quantity, (uint32_t)0, (uint8_t)0, (uint8_t)sendStop); }
 
-uint8_t TwoWire::requestFrom(uint8_t address, uint8_t quantity) { return requestFrom((uint8_t)address, (uint8_t)quantity, (uint8_t) true); }
+uint8_t TwoWire::requestFrom(uint8_t address, uint8_t quantity) { return requestFrom((uint8_t)address, (uint8_t)quantity, (uint8_t)true); }
 
-uint8_t TwoWire::requestFrom(int address, int quantity) { return requestFrom((uint8_t)address, (uint8_t)quantity, (uint8_t) true); }
+uint8_t TwoWire::requestFrom(int address, int quantity) { return requestFrom((uint8_t)address, (uint8_t)quantity, (uint8_t)true); }
 
 uint8_t TwoWire::requestFrom(int address, int quantity, int sendStop) { return requestFrom((uint8_t)address, (uint8_t)quantity, (uint8_t)sendStop); }
 
