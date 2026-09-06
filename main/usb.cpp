@@ -44,13 +44,13 @@ static const uint8_t hid_configuration_descriptor[] = {
     TUD_CONFIG_DESCRIPTOR(1, 1, 0, TUSB_DESC_IN_OUT_TOTAL_LEN, TUSB_DESC_CONFIG_ATT_SELF_POWERED, 100),
     // HID Input & torque_ratio descriptor
     // Interface number, string index, protocol, report descriptor len, EP OUT & IN address, size & polling interval
-    TUD_HID_INOUT_DESCRIPTOR(0, 4, false, sizeof(G_DefaultReportDescriptor), 0x81, 0x01, 64, 1),
+    TUD_HID_INOUT_DESCRIPTOR(0, 4, false, sizeof(desc_hid_report), 0x81, 0x01, 64, 1),
 };
 // Invoked when received GET HID REPORT DESCRIPTOR request
 // Application return pointer to descriptor, whose contents must exist long enough for transfer to complete
 uint8_t const *tud_hid_descriptor_report_cb(uint8_t instance) {
     // We use only one interface and one HID report descriptor, so we can ignore parameter 'instance'
-    return G_DefaultReportDescriptor;
+    return desc_hid_report;
 }
 static tusb_desc_device_t const desc_device = {
     .bLength = sizeof(tusb_desc_device_t),
